@@ -15,10 +15,15 @@ export const useMatchmaking = () => {
     const listeners = activeListeners[song.id] || 0;
     console.log("Active listeners for this song:", listeners);
     
-    if (listeners > 1 || Math.random() > 0.2) {
+    // More realistic matching logic - higher chance when there are more listeners
+    if (listeners > 0 || Math.random() > 0.5) {
       simulateMatch(song);
     } else {
       console.log("No match found at this time");
+      toast({
+        title: "Looking for matches",
+        description: "We'll notify you when someone else starts listening to this song",
+      });
     }
   };
 

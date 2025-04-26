@@ -21,7 +21,7 @@ const moodOptions: { label: string; value: MoodType; emoji: string }[] = [
 
 const Index: React.FC = () => {
   const { isAuthenticated, currentUser } = useAuth();
-  const { songs, currentSong, loadSong, getMoodRecommendations } = useMusic();
+  const { songs, currentSong, loadSong, getMoodRecommendations, loadingSongs } = useMusic();
   const [trendingSongs, setTrendingSongs] = useState<string[]>([]);
   const [currentMood, setCurrentMood] = useState<MoodType | null>(null);
   const [moodSongs, setMoodSongs] = useState<string[]>([]);
@@ -90,21 +90,44 @@ const Index: React.FC = () => {
           </div>
         </section>
         
+        {/* Loading State */}
+        {loadingSongs && (
+          <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-dhun-purple mx-auto mb-4"></div>
+            <p>Loading songs for you...</p>
+          </div>
+        )}
+        
+        {/* All Songs Section - Added to ensure songs are visible */}
+        {!loadingSongs && songs.length > 0 && (
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl md:text-2xl font-semibold">Featured Songs</h2>
+            </div>
+            
+            <div className="bg-white dark:bg-dhun-dark rounded-lg p-4 shadow-sm mb-6">
+              <SongList songs={songs.slice(0, 5).map(song => song.id)} />
+            </div>
+          </section>
+        )}
+        
         {/* Trending Section */}
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl md:text-2xl font-semibold">Trending Now</h2>
-            <Link to="/discover" className="text-sm text-dhun-purple hover:underline">
-              View All
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {trendingSongs.slice(0, 6).map((songId) => (
-              <SongCard key={songId} songId={songId} />
-            ))}
-          </div>
-        </section>
+        {!loadingSongs && trendingSongs.length > 0 && (
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl md:text-2xl font-semibold">Trending Now</h2>
+              <Link to="/discover" className="text-sm text-dhun-purple hover:underline">
+                View All
+              </Link>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {trendingSongs.slice(0, 6).map((songId) => (
+                <SongCard key={songId} songId={songId} />
+              ))}
+            </div>
+          </section>
+        )}
         
         {/* How it Works Section */}
         <section className="mb-12">
