@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useRef } from 'r
 import { Song, User, Match, Chat, Message, MoodType } from '../types';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { mockSongs } from '../data/mockSongs';
+import { fetchTracks, searchTracks } from '@/services/musicApi';
 
 interface MusicContextType {
   songs: Song[];
@@ -27,6 +27,9 @@ interface MusicContextType {
   getMoodRecommendations: (mood: MoodType) => Song[];
   getSongsByGenre: (genre: string) => Song[];
   getSongsByLanguage: (language: "hindi" | "english") => Song[];
+  loadingSongs: boolean;
+  loadingError: string | null;
+  activeListeners: Record<string, number>;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -41,7 +44,9 @@ export const useMusic = () => {
 
 export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
-  const [songs, setSongs] = useState<Song[]>(mockSongs);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [loadingSongs, setLoadingSongs] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolumeState] = useState(0.7);
@@ -53,9 +58,34 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
   const [matchTimer, setMatchTimer] = useState<NodeJS.Timeout | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  // Track how many users are listening to each song (for matching)
+  const [activeListeners, setActiveListeners] = useState<Record<string, number>>({});
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch songs when component mounts
+  useEffect(() => {
+    const loadSongs = async () => {
+      try {
+        setLoadingSongs(true);
+        setLoadingError(null);
+        const tracks = await fetchTracks(50);
+        if (tracks.length > 0) {
+          setSongs(tracks);
+        } else {
+          setLoadingError("No songs found. Please try again later.");
+        }
+      } catch (error) {
+        console.error("Failed to load songs:", error);
+        setLoadingError("Failed to load songs. Please check your connection and try again.");
+      } finally {
+        setLoadingSongs(false);
+      }
+    };
+    
+    loadSongs();
+  }, []);
 
   useEffect(() => {
     // Initialize audio element
@@ -138,6 +168,39 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [isPlaying]);
 
+  // Simulate active listeners for the matching logic
+  useEffect(() => {
+    // Initialize with random listeners for some songs
+    const initialListeners: Record<string, number> = {};
+    songs.forEach(song => {
+      if (Math.random() > 0.7) { // Only some songs have active listeners
+        initialListeners[song.id] = Math.floor(Math.random() * 5);
+      }
+    });
+    setActiveListeners(initialListeners);
+    
+    // Update active listeners periodically to simulate real users
+    const interval = setInterval(() => {
+      setActiveListeners(prev => {
+        const updated = { ...prev };
+        songs.forEach(song => {
+          // Random chance to add or remove listeners
+          if (Math.random() > 0.8) {
+            if (updated[song.id]) {
+              updated[song.id] = Math.max(0, updated[song.id] + (Math.random() > 0.5 ? 1 : -1));
+              if (updated[song.id] === 0) delete updated[song.id];
+            } else if (Math.random() > 0.7) {
+              updated[song.id] = 1;
+            }
+          }
+        });
+        return updated;
+      });
+    }, 30000); // Update every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [songs]);
+
   // Load a song into the player
   const loadSong = (song: Song) => {
     if (!audioRef.current) return;
@@ -155,25 +218,62 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     audioRef.current.play().then(() => {
       setIsPlaying(true);
       
-      // Start match timer - simulate finding a match after listening for 10-15 seconds
+      // Update active listeners for this song
+      setActiveListeners(prev => {
+        const updated = { ...prev };
+        updated[song.id] = (updated[song.id] || 0) + 1;
+        return updated;
+      });
+      
+      // Start match timer
       if (matchTimer) clearTimeout(matchTimer);
+      
+      const matchDelay = 8000 + Math.random() * 7000; // Between 8-15 seconds
       
       setMatchTimer(setTimeout(() => {
         findMatch(song);
-      }, 10000)); // 10 seconds for demo purposes
+      }, matchDelay));
+      
+      toast({
+        title: "Now Playing",
+        description: `${song.title} by ${song.artist}`,
+      });
     }).catch(error => {
       console.error('Playback failed:', error);
+      toast({
+        title: "Playback Error",
+        description: "There was an error playing this song. Please try another.",
+        variant: "destructive",
+      });
     });
   };
 
   // Find a match for the current song
   const findMatch = (song: Song) => {
-    // In a real app, this would be a backend call to find other users listening to the same song
-    // For demo, we'll create a mock match
+    // Check if anyone else is listening to this song (our simulation)
+    const listeners = activeListeners[song.id] || 0;
+    
+    if (listeners <= 1 && Math.random() > 0.7) {
+      // No other listeners, but we'll still match occasionally for demo purposes
+      simulateMatch(song);
+      return;
+    }
+    
+    // Higher chance of match when more listeners
+    if (listeners > 1 || Math.random() > 0.3) {
+      simulateMatch(song);
+    }
+  };
+  
+  // Simulate finding a match
+  const simulateMatch = (song: Song) => {
+    const names = ["Alex", "Taylor", "Jordan", "Morgan", "Riley", "Casey", "Avery", "Quinn", "Dakota", "Skyler"];
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    
     const mockMatchUser: User = {
-      id: 'match-1',
-      name: 'Alex',
-      email: 'alex@example.com',
+      id: 'match-' + Date.now(),
+      name: randomName,
+      email: `${randomName.toLowerCase()}@example.com`,
     };
     
     setCurrentMatch(mockMatchUser);
@@ -196,6 +296,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       
       setCurrentChat(newChat);
+      setChatOpen(true);
       
       toast({
         title: "You found a music soulmate!",
@@ -211,7 +312,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(err => {
+        console.error("Error playing audio:", err);
+        toast({
+          title: "Playback Error",
+          description: "Could not play this song. Please try another.",
+          variant: "destructive",
+        });
+      });
     }
     
     setIsPlaying(!isPlaying);
@@ -234,7 +342,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Search songs
-  const searchSongs = (query: string) => {
+  const searchSongs = async (query: string) => {
     setSearchQuery(query);
     
     if (!query.trim()) {
@@ -242,12 +350,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
     
-    const results = songs.filter(song => 
-      song.title.toLowerCase().includes(query.toLowerCase()) || 
-      song.artist.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    setSearchResults(results);
+    try {
+      const results = await searchTracks(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+      toast({
+        title: "Search Error",
+        description: "An error occurred while searching. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Send message in chat
@@ -269,26 +383,60 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     setCurrentChat(updatedChat);
     
-    // Simulate bot response if user asks about music recommendations
-    if (content.toLowerCase().includes('recommend') || content.toLowerCase().includes('suggestion')) {
-      setTimeout(() => {
-        const botMessage: Message = {
-          id: `msg-${Date.now()}`,
-          senderId: 'bot',
-          content: "Based on your current song, I'd recommend 'Blinding Lights' by The Weeknd. Let me know if you'd like more suggestions!",
-          timestamp: new Date(),
-          isBot: true,
-        };
-        
-        setCurrentChat(chat => {
-          if (!chat) return null;
-          return {
-            ...chat,
-            messages: [...chat.messages, botMessage]
-          };
-        });
-      }, 1000);
+    // Simulate response after a delay
+    setTimeout(() => {
+      simulateResponse(content);
+    }, 1000 + Math.random() * 2000);
+  };
+
+  // Simulate match response
+  const simulateResponse = (userMessage: string) => {
+    if (!currentChat || !currentMatch) return;
+    
+    // Common responses
+    const responses = [
+      "I love this song too! What's your favorite part?",
+      "Have you heard their other tracks?",
+      "This artist is amazing! Been following them for years.",
+      "What other music do you like?",
+      "This is such a great melody!",
+      "The lyrics in this song are so meaningful.",
+      "Do you play any instruments?",
+      "Music really connects people, doesn't it?",
+      "What's your favorite genre?",
+      "I'd love to exchange playlists sometime!"
+    ];
+    
+    // Check for keywords in user message
+    let responseContent = '';
+    
+    if (userMessage.toLowerCase().includes('recommend') || userMessage.toLowerCase().includes('suggestion')) {
+      responseContent = "I've been listening to a lot of indie rock lately. Have you heard of Tame Impala?";
+    } else if (userMessage.toLowerCase().includes('hello') || userMessage.toLowerCase().includes('hi') || userMessage.toLowerCase().includes('hey')) {
+      responseContent = `Hi there! Nice to meet someone with similar music taste!`;
+    } else if (userMessage.toLowerCase().includes('name') || userMessage.toLowerCase().includes('who are')) {
+      responseContent = `I'm ${currentMatch.name}! I love discovering new music and connecting with people.`;
+    } else if (userMessage.length < 10) {
+      responseContent = "Tell me more about your music preferences! I'm always looking for new recommendations.";
+    } else {
+      // Random response
+      responseContent = responses[Math.floor(Math.random() * responses.length)];
     }
+    
+    const matchResponse: Message = {
+      id: `msg-${Date.now()}`,
+      senderId: currentMatch.id,
+      content: responseContent,
+      timestamp: new Date(),
+    };
+    
+    setCurrentChat(chat => {
+      if (!chat) return null;
+      return {
+        ...chat,
+        messages: [...chat.messages, matchResponse]
+      };
+    });
   };
 
   // Toggle chat open/closed
@@ -298,31 +446,47 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Get mood-based recommendations
   const getMoodRecommendations = (mood: MoodType): Song[] => {
-    // In a real app, this would use more sophisticated matching
-    // For demo, we'll just return a filtered subset based on genre
-    switch (mood) {
-      case 'happy':
-        return songs.filter(s => s.genre === 'Pop' || s.genre === 'Dance').slice(0, 5);
-      case 'sad':
-        return songs.filter(s => s.genre === 'Ballad' || s.genre === 'Acoustic').slice(0, 5);
-      case 'energetic':
-        return songs.filter(s => s.genre === 'Rock' || s.genre === 'EDM').slice(0, 5);
-      case 'romantic':
-        return songs.filter(s => s.genre === 'R&B' || s.genre === 'Acoustic').slice(0, 5);
-      case 'relaxed':
-        return songs.filter(s => s.genre === 'Lofi' || s.genre === 'Ambient').slice(0, 5);
-      case 'party':
-        return songs.filter(s => s.genre === 'Dance' || s.genre === 'Hip Hop').slice(0, 5);
-      case 'focus':
-        return songs.filter(s => s.genre === 'Ambient' || s.genre === 'Classical').slice(0, 5);
-      default:
-        return songs.slice(0, 5);
+    if (songs.length === 0) return [];
+    
+    // Map moods to genre filters
+    const moodGenreMap: Record<MoodType, string[]> = {
+      'happy': ['Pop', 'Dance', 'Electro', 'Funk'],
+      'sad': ['Acoustic', 'Ambience', 'Jazz', 'Classical'],
+      'energetic': ['Rock', 'Electronic', 'Metal', 'Punk'],
+      'romantic': ['R&B', 'Acoustic', 'Soul', 'Jazz'],
+      'relaxed': ['Lofi', 'Ambient', 'Chillout', 'Jazz'],
+      'party': ['Dance', 'Hip Hop', 'Electro', 'House'],
+      'focus': ['Ambient', 'Classical', 'Chillout', 'Lofi']
+    };
+    
+    const relevantGenres = moodGenreMap[mood] || [];
+    
+    // Filter songs by genres that match the mood
+    let filteredSongs = songs.filter(song => {
+      const songGenre = song.genre.toLowerCase();
+      return relevantGenres.some(genre => songGenre.includes(genre.toLowerCase()));
+    });
+    
+    // If we don't have enough songs, add some random ones
+    if (filteredSongs.length < 5) {
+      const remainingSongs = songs.filter(
+        song => !filteredSongs.find(s => s.id === song.id)
+      );
+      const randomSongs = remainingSongs
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 5 - filteredSongs.length);
+      
+      filteredSongs = [...filteredSongs, ...randomSongs];
     }
+    
+    return filteredSongs.slice(0, 10);
   };
 
   // Get songs by genre
   const getSongsByGenre = (genre: string): Song[] => {
-    return songs.filter(song => song.genre.toLowerCase() === genre.toLowerCase());
+    return songs.filter(song => 
+      song.genre.toLowerCase().includes(genre.toLowerCase())
+    );
   };
 
   // Get songs by language
@@ -352,6 +516,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     getMoodRecommendations,
     getSongsByGenre,
     getSongsByLanguage,
+    loadingSongs,
+    loadingError,
+    activeListeners
   };
 
   return (

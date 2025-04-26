@@ -5,9 +5,8 @@ import { useMusic } from '@/contexts/MusicContext';
 import Header from '@/components/common/Header';
 import SongCard from '@/components/songs/SongCard';
 import SongList from '@/components/songs/SongList';
-import MusicPlayer from '@/components/player/MusicPlayer';
-import ChatRoom from '@/components/chat/ChatRoom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { MoodType } from '@/types';
 import { Link } from 'react-router-dom';
 
@@ -22,7 +21,7 @@ const moodOptions: { label: string; value: MoodType; emoji: string }[] = [
 
 const Index: React.FC = () => {
   const { isAuthenticated, currentUser } = useAuth();
-  const { songs, currentSong, loadSong, getMoodRecommendations } = useMusic();
+  const { songs, currentSong, loadSong, getMoodRecommendations, activeListeners } = useMusic();
   const [trendingSongs, setTrendingSongs] = useState<string[]>([]);
   const [currentMood, setCurrentMood] = useState<MoodType | null>(null);
   const [moodSongs, setMoodSongs] = useState<string[]>([]);
@@ -42,6 +41,14 @@ const Index: React.FC = () => {
     const recommendations = getMoodRecommendations(mood);
     setMoodSongs(recommendations.map(song => song.id));
   };
+  
+  // Calculate total active listeners
+  const totalActiveListeners = Object.values(activeListeners).reduce((a, b) => a + b, 0);
+  
+  // Get songs with multiple active listeners (potential matches)
+  const potentialMatches = Object.entries(activeListeners)
+    .filter(([_, count]) => count > 1)
+    .map(([songId]) => songId);
 
   return (
     <div className="min-h-screen flex flex-col pb-20">
@@ -60,7 +67,7 @@ const Index: React.FC = () => {
               <p className="text-dhun-dark opacity-80 mb-6">
                 Find your music soulmates - people who are listening to the same songs as you right now.
               </p>
-              {!isAuthenticated && (
+              {!isAuthenticated ? (
                 <div className="flex flex-wrap gap-3">
                   <Link to="/login">
                     <Button className="bg-dhun-purple hover:bg-dhun-purple/90">
@@ -73,10 +80,68 @@ const Index: React.FC = () => {
                     </Button>
                   </Link>
                 </div>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/profile">
+                    <Button className="bg-dhun-purple hover:bg-dhun-purple/90">
+                      My Profile
+                    </Button>
+                  </Link>
+                  <Link to="/discover">
+                    <Button variant="outline" className="border-dhun-purple text-dhun-purple hover:bg-dhun-purple/10">
+                      Discover Music
+                    </Button>
+                  </Link>
+                </div>
               )}
             </div>
           </div>
         </section>
+        
+        {/* Active Users Stats */}
+        {isAuthenticated && (
+          <section className="mb-10">
+            <div className="bg-white dark:bg-dhun-dark rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-4">Music Connection Stats</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="border rounded-lg p-4 bg-gradient-to-br from-dhun-light-purple to-white dark:from-dhun-purple/20 dark:to-dhun-dark">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Listeners</h3>
+                  <p className="text-3xl font-bold mt-1">{totalActiveListeners}</p>
+                  <p className="text-sm mt-1">People listening right now</p>
+                </div>
+                
+                <div className="border rounded-lg p-4 bg-gradient-to-br from-dhun-light-blue to-white dark:from-dhun-blue/20 dark:to-dhun-dark">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Potential Matches</h3>
+                  <p className="text-3xl font-bold mt-1">{potentialMatches.length}</p>
+                  <p className="text-sm mt-1">Songs with multiple listeners</p>
+                </div>
+                
+                <div className="border rounded-lg p-4 bg-gradient-to-br from-green-100 to-white dark:from-green-900/20 dark:to-dhun-dark">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Matching Status</h3>
+                  <div className="mt-2">
+                    {currentSong ? (
+                      <>
+                        <Badge className={activeListeners[currentSong.id] > 1 ? "bg-green-500" : "bg-amber-500"}>
+                          {activeListeners[currentSong.id] > 1 ? "Match Possible" : "Waiting for Match"}
+                        </Badge>
+                        <p className="text-sm mt-2">
+                          {activeListeners[currentSong.id] > 1 
+                            ? `${activeListeners[currentSong.id] - 1} other people listening to this song` 
+                            : "Keep listening for a match"}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Badge className="bg-gray-500">Not Playing</Badge>
+                        <p className="text-sm mt-2">Play a song to start matching</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
         
         {/* Trending Section */}
         <section className="mb-12">
@@ -162,9 +227,6 @@ const Index: React.FC = () => {
           )}
         </section>
       </main>
-      
-      {currentSong && <MusicPlayer />}
-      <ChatRoom />
     </div>
   );
 };

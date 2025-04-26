@@ -10,7 +10,11 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Discover from "./pages/Discover";
 import Mood from "./pages/Mood";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import Chatbot from "./components/chat/Chatbot";
+import MusicPlayer from "./components/player/MusicPlayer";
+import ChatRoom from "./components/chat/ChatRoom";
 
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { MusicProvider } from "./contexts/MusicContext";
@@ -33,15 +37,27 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
+  const { currentSong } = useAuth();
+  
   return (
-    <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/discover" element={<Discover />} />
-      <Route path="/mood" element={<Mood />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/discover" element={<Discover />} />
+        <Route path="/mood" element={<Mood />} />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <MusicPlayer />
+      <ChatRoom />
+      <Chatbot />
+    </>
   );
 };
 

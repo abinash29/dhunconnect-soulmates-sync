@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,6 +45,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Invalid email format');
+      }
+      
+      // Validate password
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
+      }
+      
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -53,12 +66,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: '1',
           name: 'Demo User',
           email: 'demo@example.com',
+          avatar: 'https://api.dicebear.com/7.x/micah/svg?seed=demo',
         };
         setCurrentUser(mockUser);
         localStorage.setItem('dhunconnect_user', JSON.stringify(mockUser));
         toast({
           title: "Login successful",
-          description: "Welcome to DhunConnect!",
+          description: "Welcome back to DhunConnect!",
         });
       } else {
         throw new Error('Invalid email or password');
@@ -79,14 +93,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (name: string, email: string, password: string) => {
     try {
       setIsLoading(true);
+      
+      // Validate name
+      if (name.trim().length < 2) {
+        throw new Error('Name must be at least 2 characters');
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Invalid email format');
+      }
+      
+      // Validate password
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
+      }
+      
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // For demo purposes, create a new user
+      // For demo purposes, create a new user with a generated avatar
+      const seed = name.replace(/\s+/g, '-').toLowerCase();
+      const avatarUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}`;
+      
       const newUser: User = {
         id: Date.now().toString(),
         name,
         email,
+        avatar: avatarUrl,
       };
       
       setCurrentUser(newUser);
@@ -115,6 +150,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       title: "Logged out successfully",
     });
   };
+  
+  const updateUser = (userData: Partial<User>) => {
+    if (!currentUser) return;
+    
+    const updatedUser = { ...currentUser, ...userData };
+    setCurrentUser(updatedUser);
+    localStorage.setItem('dhunconnect_user', JSON.stringify(updatedUser));
+    
+    toast({
+      title: "Profile updated",
+      description: "Your profile has been updated successfully",
+    });
+  };
 
   const value = {
     currentUser,
@@ -123,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     signup,
     logout,
+    updateUser,
   };
 
   return (

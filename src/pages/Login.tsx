@@ -1,22 +1,32 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from '@/hooks/use-toast';
 
 const Login: React.FC = () => {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loginAttempted, setLoginAttempted] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated && !loginAttempted) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate, loginAttempted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoginAttempted(true);
     
     if (!email || !password) {
       setError('Please fill in all fields');
@@ -26,17 +36,22 @@ const Login: React.FC = () => {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err) {
-      // Error is handled in AuthProvider via toast
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.');
     }
   };
 
   const handleDemoLogin = async () => {
     try {
+      setLoginAttempted(true);
       await login('demo@example.com', 'password');
+      toast({
+        title: "Demo Login Successful",
+        description: "You're now logged in as a demo user",
+      });
       navigate('/');
     } catch (err) {
-      // Error is handled in AuthProvider via toast
+      setError('Demo login failed. Please try again.');
     }
   };
 
@@ -63,7 +78,7 @@ const Login: React.FC = () => {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-md mb-4 text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-md mb-4 text-sm">
                 {error}
               </div>
             )}
@@ -116,6 +131,9 @@ const Login: React.FC = () => {
               >
                 Try with Demo Account
               </Button>
+              <p className="text-xs text-center mt-2 text-gray-500">
+                (Email: demo@example.com, Password: password)
+              </p>
             </div>
           </CardContent>
           <CardFooter className="flex justify-center">
