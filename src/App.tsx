@@ -37,8 +37,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { currentSong } = useAuth();
-  
   return (
     <>
       <Routes>

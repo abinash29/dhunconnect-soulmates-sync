@@ -1,7 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { Song, User, Match, Chat, Message, MoodType } from '../types';
-import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { fetchTracks, searchTracks } from '@/services/musicApi';
 
@@ -43,7 +42,6 @@ export const useMusic = () => {
 };
 
 export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loadingSongs, setLoadingSongs] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -70,7 +68,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         setLoadingSongs(true);
         setLoadingError(null);
+        console.log("Attempting to fetch tracks...");
         const tracks = await fetchTracks(50);
+        console.log(`Fetched ${tracks.length} tracks`);
         if (tracks.length > 0) {
           setSongs(tracks);
         } else {
@@ -118,12 +118,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Handle audio metadata loaded
   const handleMetadataLoaded = () => {
     if (audioRef.current) {
-      setDuration(audioRef.current.duration);
+      console.log("Audio metadata loaded, duration:", audioRef.current.duration);
+      setDuration(audioRef.current.duration || 0);
     }
   };
 
   // Handle song ending
   const handleSongEnd = () => {
+    console.log("Song ended");
     setIsPlaying(false);
     setProgress(0);
     if (progressTimerRef.current) {
@@ -196,7 +198,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
         return updated;
       });
-    }, 30000); // Update every 30 seconds
+    }, 10000); // Update every 10 seconds (more frequent for better demo)
     
     return () => clearInterval(interval);
   }, [songs]);
@@ -204,6 +206,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Load a song into the player
   const loadSong = (song: Song) => {
     if (!audioRef.current) return;
+    
+    console.log("Loading song:", song.title, "by", song.artist);
+    console.log("Audio URL:", song.audioUrl);
     
     // Reset state
     setIsPlaying(false);
@@ -213,55 +218,60 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentSong(song);
     audioRef.current.src = song.audioUrl;
     audioRef.current.load();
+    audioRef.current.volume = volume;
     
     // Auto-play after loading
-    audioRef.current.play().then(() => {
-      setIsPlaying(true);
-      
-      // Update active listeners for this song
-      setActiveListeners(prev => {
-        const updated = { ...prev };
-        updated[song.id] = (updated[song.id] || 0) + 1;
-        return updated;
+    const playPromise = audioRef.current.play();
+    
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        console.log("Song playing successfully");
+        setIsPlaying(true);
+        
+        // Update active listeners for this song
+        setActiveListeners(prev => {
+          const updated = { ...prev };
+          updated[song.id] = (updated[song.id] || 0) + 1;
+          return updated;
+        });
+        
+        // Start match timer
+        if (matchTimer) clearTimeout(matchTimer);
+        
+        const matchDelay = 5000 + Math.random() * 5000; // Between 5-10 seconds (faster for demo)
+        
+        setMatchTimer(setTimeout(() => {
+          findMatch(song);
+        }, matchDelay));
+        
+        toast({
+          title: "Now Playing",
+          description: `${song.title} by ${song.artist}`,
+        });
+      }).catch(error => {
+        console.error('Playback failed:', error);
+        toast({
+          title: "Playback Error",
+          description: "There was an error playing this song. Please try another.",
+          variant: "destructive",
+        });
       });
-      
-      // Start match timer
-      if (matchTimer) clearTimeout(matchTimer);
-      
-      const matchDelay = 8000 + Math.random() * 7000; // Between 8-15 seconds
-      
-      setMatchTimer(setTimeout(() => {
-        findMatch(song);
-      }, matchDelay));
-      
-      toast({
-        title: "Now Playing",
-        description: `${song.title} by ${song.artist}`,
-      });
-    }).catch(error => {
-      console.error('Playback failed:', error);
-      toast({
-        title: "Playback Error",
-        description: "There was an error playing this song. Please try another.",
-        variant: "destructive",
-      });
-    });
+    }
   };
 
   // Find a match for the current song
   const findMatch = (song: Song) => {
+    console.log("Finding match for song:", song.title);
+    
     // Check if anyone else is listening to this song (our simulation)
     const listeners = activeListeners[song.id] || 0;
+    console.log("Active listeners for this song:", listeners);
     
-    if (listeners <= 1 && Math.random() > 0.7) {
-      // No other listeners, but we'll still match occasionally for demo purposes
+    // Higher chance of match when more listeners (80% chance with other listeners)
+    if (listeners > 1 || Math.random() > 0.2) {
       simulateMatch(song);
-      return;
-    }
-    
-    // Higher chance of match when more listeners
-    if (listeners > 1 || Math.random() > 0.3) {
-      simulateMatch(song);
+    } else {
+      console.log("No match found at this time");
     }
   };
   
@@ -269,6 +279,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const simulateMatch = (song: Song) => {
     const names = ["Alex", "Taylor", "Jordan", "Morgan", "Riley", "Casey", "Avery", "Quinn", "Dakota", "Skyler"];
     const randomName = names[Math.floor(Math.random() * names.length)];
+    
+    console.log(`Found match: ${randomName} is also listening to "${song.title}"`);
     
     const mockMatchUser: User = {
       id: 'match-' + Date.now(),
@@ -279,30 +291,28 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentMatch(mockMatchUser);
     
     // Create a mock chat
-    if (currentUser) {
-      const newChat: Chat = {
-        id: `chat-${Date.now()}`,
-        matchId: `match-${Date.now()}`,
-        users: [currentUser.id, mockMatchUser.id],
-        messages: [
-          {
-            id: `msg-${Date.now()}`,
-            senderId: 'bot',
-            content: `You and ${mockMatchUser.name} are both enjoying "${song.title}" by ${song.artist}! Why not say hello?`,
-            timestamp: new Date(),
-            isBot: true,
-          }
-        ]
-      };
-      
-      setCurrentChat(newChat);
-      setChatOpen(true);
-      
-      toast({
-        title: "You found a music soulmate!",
-        description: `${mockMatchUser.name} is also listening to ${song.title}`,
-      });
-    }
+    const newChat: Chat = {
+      id: `chat-${Date.now()}`,
+      matchId: `match-${Date.now()}`,
+      users: ['current-user', mockMatchUser.id],
+      messages: [
+        {
+          id: `msg-${Date.now()}`,
+          senderId: 'bot',
+          content: `You and ${mockMatchUser.name} are both enjoying "${song.title}" by ${song.artist}! Why not say hello?`,
+          timestamp: new Date(),
+          isBot: true,
+        }
+      ]
+    };
+    
+    setCurrentChat(newChat);
+    setChatOpen(true);
+    
+    toast({
+      title: "You found a music soulmate!",
+      description: `${mockMatchUser.name} is also listening to ${song.title}`,
+    });
   };
 
   // Toggle play/pause
@@ -310,8 +320,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!audioRef.current || !currentSong) return;
     
     if (isPlaying) {
+      console.log("Pausing playback");
       audioRef.current.pause();
     } else {
+      console.log("Resuming playback");
       audioRef.current.play().catch(err => {
         console.error("Error playing audio:", err);
         toast({
@@ -329,6 +341,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setVolume = (newVolume: number) => {
     if (!audioRef.current) return;
     
+    console.log("Setting volume to:", newVolume);
     audioRef.current.volume = newVolume;
     setVolumeState(newVolume);
   };
@@ -337,6 +350,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const seekToPosition = (position: number) => {
     if (!audioRef.current) return;
     
+    console.log("Seeking to position:", position);
     audioRef.current.currentTime = position;
     setProgress(position);
   };
@@ -350,9 +364,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
     
+    console.log("Searching for:", query);
+    
     try {
       const results = await searchTracks(query);
       setSearchResults(results);
+      console.log(`Found ${results.length} results for "${query}"`);
     } catch (error) {
       console.error("Search error:", error);
       setSearchResults([]);
@@ -366,11 +383,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Send message in chat
   const sendMessage = (content: string) => {
-    if (!currentUser || !currentChat) return;
+    if (!currentChat) return;
+    
+    console.log("Sending message:", content);
     
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
-      senderId: currentUser.id,
+      senderId: 'current-user',
       content,
       timestamp: new Date(),
     };
@@ -386,7 +405,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Simulate response after a delay
     setTimeout(() => {
       simulateResponse(content);
-    }, 1000 + Math.random() * 2000);
+    }, 1000 + Math.random() * 1000);
   };
 
   // Simulate match response
@@ -423,6 +442,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       responseContent = responses[Math.floor(Math.random() * responses.length)];
     }
     
+    console.log("Match response:", responseContent);
+    
     const matchResponse: Message = {
       id: `msg-${Date.now()}`,
       senderId: currentMatch.id,
@@ -447,6 +468,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Get mood-based recommendations
   const getMoodRecommendations = (mood: MoodType): Song[] => {
     if (songs.length === 0) return [];
+    
+    console.log(`Getting recommendations for mood: ${mood}`);
     
     // Map moods to genre filters
     const moodGenreMap: Record<MoodType, string[]> = {

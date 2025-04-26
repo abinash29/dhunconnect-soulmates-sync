@@ -46,37 +46,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new Error('Invalid email format');
-      }
+      // Simplified login for demo purposes
+      // Accept any email/password combination for demo
+      const seed = email.split('@')[0];
+      const avatarUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}`;
       
-      // Validate password
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters');
-      }
+      const mockUser: User = {
+        id: Date.now().toString(),
+        name: email.split('@')[0],
+        email: email,
+        avatar: avatarUrl,
+      };
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setCurrentUser(mockUser);
+      localStorage.setItem('dhunconnect_user', JSON.stringify(mockUser));
       
-      // Mock validation - in a real app, this would be a backend call
-      if (email === 'demo@example.com' && password === 'password') {
-        const mockUser: User = {
-          id: '1',
-          name: 'Demo User',
-          email: 'demo@example.com',
-          avatar: 'https://api.dicebear.com/7.x/micah/svg?seed=demo',
-        };
-        setCurrentUser(mockUser);
-        localStorage.setItem('dhunconnect_user', JSON.stringify(mockUser));
-        toast({
-          title: "Login successful",
-          description: "Welcome back to DhunConnect!",
-        });
-      } else {
-        throw new Error('Invalid email or password');
-      }
+      toast({
+        title: "Login successful",
+        description: "Welcome to DhunConnect!",
+      });
     } catch (error) {
       toast({
         title: "Login failed",
@@ -109,9 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (password.length < 6) {
         throw new Error('Password must be at least 6 characters');
       }
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // For demo purposes, create a new user with a generated avatar
       const seed = name.replace(/\s+/g, '-').toLowerCase();

@@ -65,7 +65,7 @@ const MusicPlayer: React.FC = () => {
               <input 
                 type="range" 
                 min="0" 
-                max={duration || 0} 
+                max={duration || 1} 
                 value={progress} 
                 onChange={(e) => seekToPosition(parseFloat(e.target.value))} 
                 className="w-full h-1 rounded-full progress-bar appearance-none bg-gray-200 dark:bg-gray-700 cursor-pointer"

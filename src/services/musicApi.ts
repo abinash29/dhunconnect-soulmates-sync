@@ -29,6 +29,7 @@ interface JamendoResponse {
 
 export const fetchTracks = async (limit = 20): Promise<Song[]> => {
   try {
+    console.log("Fetching tracks from Jamendo API...");
     const response = await axios.get<JamendoResponse>(`${API_BASE_URL}/tracks/`, {
       params: {
         client_id: CLIENT_ID,
@@ -39,12 +40,14 @@ export const fetchTracks = async (limit = 20): Promise<Song[]> => {
       }
     });
 
+    console.log("API Response:", response.data.headers);
+
     if (response.data.headers.code !== 200 || !response.data.results) {
       console.error('API Error:', response.data.headers.error_message || 'Unknown error');
       return [];
     }
 
-    return response.data.results.map(track => ({
+    const tracks = response.data.results.map(track => ({
       id: track.id,
       title: track.name,
       artist: track.artist_name,
@@ -55,6 +58,9 @@ export const fetchTracks = async (limit = 20): Promise<Song[]> => {
       // Since Jamendo has mostly English songs, we'll set this randomly for demo
       language: Math.random() > 0.3 ? 'english' : 'hindi',
     }));
+    
+    console.log(`Successfully fetched ${tracks.length} tracks`);
+    return tracks;
   } catch (error) {
     console.error('Error fetching tracks:', error);
     return [];
@@ -65,6 +71,7 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
   if (!query.trim()) return [];
   
   try {
+    console.log(`Searching tracks with query: "${query}"`);
     const response = await axios.get<JamendoResponse>(`${API_BASE_URL}/tracks/`, {
       params: {
         client_id: CLIENT_ID,
@@ -80,7 +87,7 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
       return [];
     }
 
-    return response.data.results.map(track => ({
+    const tracks = response.data.results.map(track => ({
       id: track.id,
       title: track.name,
       artist: track.artist_name,
@@ -90,6 +97,9 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
       genre: track.genres?.[0] || 'Unknown',
       language: Math.random() > 0.3 ? 'english' : 'hindi',
     }));
+    
+    console.log(`Found ${tracks.length} tracks for query "${query}"`);
+    return tracks;
   } catch (error) {
     console.error('Error searching tracks:', error);
     return [];
