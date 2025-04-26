@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				dhun: {
+					purple: '#8B5CF6',
+					'light-purple': '#E5DEFF',
+					blue: '#0EA5E9',
+					'light-blue': '#D3E4FD',
+					orange: '#F97316',
+					dark: '#1A1F2C',
+					gray: '#8E9196'
 				}
 			},
 			borderRadius: {
@@ -84,11 +94,25 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-ring': {
+					'0%': { transform: 'scale(0.8)', opacity: '0' },
+					'50%': { opacity: '0.5' },
+					'100%': { transform: 'scale(1.3)', opacity: '0' }
+				},
+				'equalizer-bar': {
+					'0%': { height: '10%' },
+					'50%': { height: '70%' },
+					'100%': { height: '10%' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-ring': 'pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'equalizer-1': 'equalizer-bar 1.2s ease infinite',
+				'equalizer-2': 'equalizer-bar 1.7s ease infinite',
+				'equalizer-3': 'equalizer-bar 1.5s ease infinite'
 			}
 		}
 	},
