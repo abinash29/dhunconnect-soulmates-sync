@@ -55,8 +55,8 @@ export const fetchTracks = async (limit = 20): Promise<Song[]> => {
       audioUrl: track.audio,
       duration: track.duration,
       genre: track.genres?.[0] || 'Unknown',
-      // Since Jamendo has mostly English songs, we'll set this randomly for demo
-      language: Math.random() > 0.3 ? 'english' : 'hindi',
+      // Ensure language is properly typed as "english" or "hindi"
+      language: Math.random() > 0.3 ? "english" as const : "hindi" as const,
     }));
     
     console.log(`Successfully fetched ${tracks.length} tracks`);
@@ -95,7 +95,8 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
       audioUrl: track.audio,
       duration: track.duration,
       genre: track.genres?.[0] || 'Unknown',
-      language: Math.random() > 0.3 ? 'english' : 'hindi',
+      // Ensure language is properly typed as "english" or "hindi"
+      language: Math.random() > 0.3 ? "english" as const : "hindi" as const,
     }));
     
     console.log(`Found ${tracks.length} tracks for query "${query}"`);
