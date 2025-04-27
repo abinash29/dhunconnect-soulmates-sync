@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Search, Menu, User, LogOut, Music } from 'lucide-react';
+import { Home, MessageSquare, User, Search, LogOut, Music } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useMusic } from '@/contexts/MusicContext';
 
@@ -13,6 +12,7 @@ const Header: React.FC = () => {
   const { isAuthenticated, currentUser, logout } = useAuth();
   const { searchSongs, searchResults, loadSong } = useMusic();
   const [searchOpen, setSearchOpen] = useState(false);
+  const location = useLocation();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     searchSongs(e.target.value);
@@ -26,6 +26,8 @@ const Header: React.FC = () => {
     }
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
   return (
     <header className="bg-white dark:bg-dhun-dark shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -38,17 +40,37 @@ const Header: React.FC = () => {
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center space-x-6">
-          <Link to="/" className="text-gray-700 dark:text-gray-200 hover:text-dhun-purple dark:hover:text-dhun-purple font-medium">
-            Home
+        <nav className="flex items-center gap-6">
+          <Link to="/">
+            <Button 
+              variant={isActive('/') ? "default" : "ghost"} 
+              size="icon" 
+              className={isActive('/') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
+            >
+              <Home className="h-5 w-5" />
+            </Button>
           </Link>
-          <Link to="/discover" className="text-gray-700 dark:text-gray-200 hover:text-dhun-purple dark:hover:text-dhun-purple font-medium">
-            Discover
+          
+          <Link to="/chat">
+            <Button 
+              variant={isActive('/chat') ? "default" : "ghost"} 
+              size="icon" 
+              className={isActive('/chat') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
           </Link>
-          <Link to="/mood" className="text-gray-700 dark:text-gray-200 hover:text-dhun-purple dark:hover:text-dhun-purple font-medium">
-            Moods
+          
+          <Link to="/profile">
+            <Button 
+              variant={isActive('/profile') ? "default" : "ghost"} 
+              size="icon" 
+              className={isActive('/profile') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
+            >
+              <User className="h-5 w-5" />
+            </Button>
           </Link>
-        </div>
+        </nav>
 
         <div className="flex items-center gap-3">
           <Sheet open={searchOpen} onOpenChange={setSearchOpen}>
@@ -107,11 +129,9 @@ const Header: React.FC = () => {
                   {currentUser?.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden md:block">
-                <Button variant="ghost" size="icon" onClick={logout}>
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </div>
+              <Button variant="ghost" size="icon" onClick={logout}>
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           ) : (
             <Link to="/login">
