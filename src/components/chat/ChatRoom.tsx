@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, User, X } from 'lucide-react';
+import { Send, User, X, Smile, PaperclipIcon, Mic } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 const ChatRoom: React.FC = () => {
   const { currentChat, currentMatch, chatOpen, sendMessage, toggleChat } = useMusic();
   const { currentUser } = useAuth();
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -20,6 +22,17 @@ const ChatRoom: React.FC = () => {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [currentChat?.messages]);
+
+  // Simulate typing indicator
+  useEffect(() => {
+    if (currentChat && currentMatch) {
+      const typingInterval = setInterval(() => {
+        setIsTyping(Math.random() > 0.7);
+      }, 3000);
+      
+      return () => clearInterval(typingInterval);
+    }
+  }, [currentChat, currentMatch]);
 
   const handleSend = () => {
     if (message.trim()) {
@@ -33,6 +46,13 @@ const ChatRoom: React.FC = () => {
       e.preventDefault();
       handleSend();
     }
+  };
+  
+  const handleAttachFile = () => {
+    toast({
+      title: "Feature Coming Soon",
+      description: "File attachment will be available soon!",
+    });
   };
 
   if (!currentChat || !currentMatch || !currentUser) return null;
@@ -49,7 +69,12 @@ const ChatRoom: React.FC = () => {
                   {currentMatch.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <SheetTitle>{currentMatch.name}</SheetTitle>
+              <div>
+                <SheetTitle className="mb-0">{currentMatch.name}</SheetTitle>
+                {isTyping && (
+                  <span className="text-xs text-dhun-purple animate-pulse">typing...</span>
+                )}
+              </div>
             </div>
             <Button variant="ghost" size="sm" onClick={toggleChat}>
               <X size={18} />
@@ -58,7 +83,7 @@ const ChatRoom: React.FC = () => {
         </SheetHeader>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
           {currentChat.messages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const isBot = msg.isBot;
@@ -74,7 +99,7 @@ const ChatRoom: React.FC = () => {
                       ? 'bg-dhun-light-blue text-gray-800' 
                       : isCurrentUser 
                         ? 'bg-dhun-purple text-white' 
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
+                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm'
                   }`}
                 >
                   {isBot && (
@@ -93,12 +118,26 @@ const ChatRoom: React.FC = () => {
               </div>
             );
           })}
+          {isTyping && !currentChat.messages[currentChat.messages.length - 1]?.senderId === currentMatch.id && (
+            <div className="flex justify-start">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 max-w-[80%] shadow-sm">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t">
-          <div className="flex gap-2">
+        <div className="p-3 border-t bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={handleAttachFile}>
+              <PaperclipIcon size={18} />
+            </Button>
             <Input
               placeholder="Type a message..."
               value={message}
@@ -106,7 +145,10 @@ const ChatRoom: React.FC = () => {
               onKeyDown={handleKeyPress}
               className="flex-1"
             />
-            <Button onClick={handleSend}>
+            <Button variant="ghost" size="icon">
+              <Smile size={18} />
+            </Button>
+            <Button onClick={handleSend} className="bg-dhun-purple hover:bg-dhun-purple/90">
               <Send size={18} />
             </Button>
           </div>

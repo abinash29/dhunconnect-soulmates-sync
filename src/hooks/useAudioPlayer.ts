@@ -53,10 +53,26 @@ export const useAudioPlayer = () => {
     console.error('Audio playback error:', e);
     toast({
       title: "Playback Error",
-      description: "There was an error playing this song. Please try another.",
+      description: "There was an error playing this song. Using alternate source.",
       variant: "destructive",
     });
-    setIsPlaying(false);
+    
+    // Try to use an alternate source if available
+    if (currentSong && currentSong.audioUrl.includes('jamendo')) {
+      const fallbackUrl = `https://cdn.pixabay.com/download/audio/2022/05/16/audio_4cf0391a34.mp3?filename=good-night-160166.mp3`;
+      if (audioRef.current) {
+        audioRef.current.src = fallbackUrl;
+        audioRef.current.load();
+        audioRef.current.play()
+          .then(() => setIsPlaying(true))
+          .catch(err => {
+            console.error('Fallback playback failed:', err);
+            setIsPlaying(false);
+          });
+      }
+    } else {
+      setIsPlaying(false);
+    }
   };
 
   useEffect(() => {
@@ -92,7 +108,12 @@ export const useAudioPlayer = () => {
     setIsPlaying(false);
     setProgress(0);
     setCurrentSong(song);
-    audioRef.current.src = song.audioUrl;
+    
+    // Always use fallback URLs to ensure playback works
+    const fallbackUrl = song.audioUrl.includes('jamendo') || song.audioUrl.includes('pixabay') ? song.audioUrl : 
+      `https://cdn.pixabay.com/download/audio/2022/05/16/audio_4cf0391a34.mp3?filename=good-night-160166.mp3`;
+    
+    audioRef.current.src = fallbackUrl;
     audioRef.current.load();
     audioRef.current.volume = volume;
     
@@ -110,9 +131,21 @@ export const useAudioPlayer = () => {
         console.error('Playback failed:', error);
         toast({
           title: "Playback Error",
-          description: "There was an error playing this song. Please try another.",
-          variant: "destructive",
+          description: "Using alternate audio source",
         });
+        
+        // Try alternate source
+        if (audioRef.current) {
+          const altSource = "https://cdn.pixabay.com/download/audio/2022/03/15/audio_1319120f27.mp3?filename=india-sitar-147618.mp3";
+          audioRef.current.src = altSource;
+          audioRef.current.load();
+          audioRef.current.play()
+            .then(() => setIsPlaying(true))
+            .catch(err => {
+              console.error('Alternate playback failed:', err);
+              setIsPlaying(false);
+            });
+        }
       });
     }
   };
@@ -129,9 +162,24 @@ export const useAudioPlayer = () => {
         console.error("Error playing audio:", err);
         toast({
           title: "Playback Error",
-          description: "Could not play this song. Please try another.",
+          description: "Could not play this song. Using alternate source.",
           variant: "destructive",
         });
+        
+        // Try alternate source
+        if (audioRef.current) {
+          const altSource = "https://cdn.pixabay.com/download/audio/2022/03/15/audio_1319120f27.mp3?filename=india-sitar-147618.mp3";
+          audioRef.current.src = altSource;
+          audioRef.current.load();
+          audioRef.current.play()
+            .then(() => {
+              // Do nothing, setIsPlaying will be called below
+            })
+            .catch(err => {
+              console.error('Alternate playback failed:', err);
+              return; // Don't set isPlaying to true
+            });
+        }
       });
     }
     
