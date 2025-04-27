@@ -118,7 +118,8 @@ const ChatRoom: React.FC = () => {
               </div>
             );
           })}
-          {isTyping && !currentChat.messages[currentChat.messages.length - 1]?.senderId === currentMatch.id && (
+          {/* Fix the type comparison error by comparing with the match's ID string */}
+          {isTyping && !currentChat.messages[currentChat.messages.length - 1]?.senderId.includes(currentMatch.id) && (
             <div className="flex justify-start">
               <div className="bg-white dark:bg-gray-800 rounded-lg p-3 max-w-[80%] shadow-sm">
                 <div className="flex space-x-1">

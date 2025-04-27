@@ -9,7 +9,7 @@ import { useMusic } from '@/contexts/MusicContext';
 import { Input } from '@/components/ui/input';
 
 const Chat: React.FC = () => {
-  const { toggleChat, songs, findMatch, loadSong } = useMusic();
+  const { toggleChat, songs, loadSong } = useMusic();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<{name: string, message: string, time: string, avatar?: string}[]>([]);
   
@@ -43,9 +43,10 @@ const Chat: React.FC = () => {
       const randomSong = songs[Math.floor(Math.random() * songs.length)];
       loadSong(randomSong);
       
-      // After a short delay, find a match which will open the chat
+      // After loading the song, the match will happen automatically through the existing matchmaking mechanism
+      // No need to call findMatch directly, as it's handled by the loadSong function
       setTimeout(() => {
-        findMatch(randomSong);
+        toggleChat();
       }, 1000);
     } else {
       // If no songs available, just open the chat
