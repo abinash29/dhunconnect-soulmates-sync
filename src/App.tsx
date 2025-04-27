@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Discover from "./pages/Discover";
 import Mood from "./pages/Mood";
+import Chat from "./pages/Chat"; // Added import for Chat component
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Chatbot from "./components/chat/Chatbot";

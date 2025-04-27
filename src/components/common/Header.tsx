@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Home, MessageSquare, User, Search, LogOut, Music } from 'lucide-react';
+import { Home, MessageSquare, User, Search, LogOut, Music, Menu } from 'lucide-react'; // Added Menu icon import
 import { Input } from '@/components/ui/input';
 import { useMusic } from '@/contexts/MusicContext';
 
