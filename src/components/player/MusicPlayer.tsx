@@ -37,6 +37,9 @@ const MusicPlayer: React.FC = () => {
             src={currentSong.albumArt || '/placeholder.svg'} 
             alt={currentSong.title} 
             className="h-12 w-12 rounded-md object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/placeholder.svg';
+            }}
           />
           <div className="overflow-hidden">
             <h4 className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis">{currentSong.title}</h4>

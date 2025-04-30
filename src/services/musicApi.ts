@@ -97,7 +97,7 @@ const convertJioSaavnTrackToSong = (track: any): Song => {
     title: track.name || track.title || 'Unknown Title',
     artist: track.primaryArtists || track.artist || 'Unknown Artist',
     albumArt: track.image?.[2]?.link || track.image || 'https://via.placeholder.com/150',
-    audioUrl: track.downloadUrl?.[2]?.link || track.downloadUrl || track.url || track.media_url,
+    audioUrl: track.downloadUrl?.[4]?.link || track.downloadUrl?.[2]?.link || track.downloadUrl || track.url || track.media_url,
     duration: track.duration || 0,
     genre: track.language || 'Unknown',
     language: track.language?.toLowerCase() === 'hindi' ? 'hindi' : 'english' as const
@@ -110,11 +110,13 @@ export const fetchTracks = async (limit = 20): Promise<Song[]> => {
     
     try {
       // Call our Supabase Edge Function to get trending songs
-      const response = await axios.get(`${EDGE_FUNCTION_URL}/trending`);
+      const response = await axios.get(`${EDGE_FUNCTION_URL}/trending`, {
+        params: { limit }
+      });
       
-      if (response.data && response.data.songs) {
+      if (response.data && response.data.data) {
         // Map JioSaavn response to our Song format
-        const tracks = response.data.songs.map(convertJioSaavnTrackToSong);
+        const tracks = response.data.data.map(convertJioSaavnTrackToSong);
         console.log(`Fetched ${tracks.length} tracks from JioSaavn API`);
         return tracks;
       }
@@ -140,12 +142,12 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
     try {
       // Call our Supabase Edge Function to search for songs
       const response = await axios.get(`${EDGE_FUNCTION_URL}/search`, {
-        params: { query }
+        params: { query, limit }
       });
       
-      if (response.data && response.data.songs) {
+      if (response.data && response.data.data) {
         // Map JioSaavn response to our Song format
-        const tracks = response.data.songs.map(convertJioSaavnTrackToSong);
+        const tracks = response.data.data.map(convertJioSaavnTrackToSong);
         console.log(`Found ${tracks.length} tracks for query "${query}" from JioSaavn API`);
         return tracks;
       }

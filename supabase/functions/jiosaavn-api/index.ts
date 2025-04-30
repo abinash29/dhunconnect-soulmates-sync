@@ -11,6 +11,7 @@ const API_BASE_URL = "https://saavn.me/api";
 interface RequestParams {
   query?: string;
   limit?: string;
+  id?: string;
 }
 
 serve(async (req) => {
@@ -25,7 +26,7 @@ serve(async (req) => {
     });
     
     let apiUrl = "";
-    const limit = params.limit || "10";
+    const limit = params.limit || "20";
     
     if (path === "search") {
       // Handle search request
@@ -39,6 +40,15 @@ serve(async (req) => {
     else if (path === "trending") {
       // Handle trending request
       apiUrl = `${API_BASE_URL}/trending/songs?limit=${limit}`;
+    }
+    else if (path === "song") {
+      // Handle song details request
+      if (!params.id) {
+        return new Response(JSON.stringify({ error: "ID parameter is required" }), 
+          { headers: { "Content-Type": "application/json" }, status: 400 });
+      }
+      
+      apiUrl = `${API_BASE_URL}/songs?id=${params.id}`;
     }
     else {
       return new Response(JSON.stringify({ error: "Invalid endpoint" }), 
