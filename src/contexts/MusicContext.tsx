@@ -50,6 +50,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const {
     isPlaying,
@@ -89,6 +90,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.log(`Fetched ${tracks.length} tracks`);
         if (tracks.length > 0) {
           setSongs(tracks);
+          // Preload first song's audio for faster playback later
+          const audio = new Audio();
+          audio.src = tracks[0].audioUrl;
+          audio.preload = 'metadata';
         } else {
           setLoadingError("No songs found. Please try again later.");
         }
@@ -161,11 +166,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     
     console.log("Searching for:", query);
+    setSearchLoading(true);
     
     try {
       const results = await searchTracks(query);
       setSearchResults(results);
       console.log(`Found ${results.length} results for "${query}"`);
+      if (results.length === 0) {
+        toast({
+          title: "No Results",
+          description: `No songs found for "${query}". Try a different search term.`,
+        });
+      }
     } catch (error) {
       console.error("Search error:", error);
       setSearchResults([]);
@@ -174,6 +186,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         description: "An error occurred while searching. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSearchLoading(false);
     }
   };
 
