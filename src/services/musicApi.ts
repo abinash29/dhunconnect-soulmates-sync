@@ -1,33 +1,12 @@
-
 import axios from 'axios';
 import { Song } from '@/types';
 
-// Using a combined approach with fallbacks for better reliability
-const API_BASE_URL = 'https://api.jamendo.com/v3.0';
-const CLIENT_ID = '9d9f42e3'; // This is a demo client ID from Jamendo
+// Base URL for our Supabase Edge Function (will be created later)
+const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL 
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jiosaavn-api`
+  : '/api/jiosaavn-api'; // fallback for local dev
 
-interface JamendoTrack {
-  id: string;
-  name: string;
-  artist_name: string;
-  album_image: string;
-  audio: string;
-  duration: number;
-  audiodownload: string;
-  genres?: string[];
-}
-
-interface JamendoResponse {
-  headers: {
-    status: string;
-    code: number;
-    error_message?: string;
-    results_count: number;
-  };
-  results: JamendoTrack[];
-}
-
-// Enhanced fallback tracks with working audio URLs
+// Existing fallback tracks for reliability
 const fallbackTracks: Song[] = [
   {
     id: "fallback-1",
@@ -111,47 +90,43 @@ const fallbackTracks: Song[] = [
   }
 ];
 
+// New function to convert JioSaavn track format to our app's Song format
+const convertJioSaavnTrackToSong = (track: any): Song => {
+  return {
+    id: track.id || `saavn-${Math.random().toString(36).substring(7)}`,
+    title: track.name || track.title || 'Unknown Title',
+    artist: track.primaryArtists || track.artist || 'Unknown Artist',
+    albumArt: track.image?.[2]?.link || track.image || 'https://via.placeholder.com/150',
+    audioUrl: track.downloadUrl?.[2]?.link || track.downloadUrl || track.url || track.media_url,
+    duration: track.duration || 0,
+    genre: track.language || 'Unknown',
+    language: track.language?.toLowerCase() === 'hindi' ? 'hindi' : 'english' as const
+  };
+};
+
 export const fetchTracks = async (limit = 20): Promise<Song[]> => {
   try {
-    console.log("Attempting to fetch tracks from API...");
+    console.log("Attempting to fetch tracks from JioSaavn API...");
     
-    // For now, we'll use only our reliable fallback tracks instead of dealing with API failures
-    // You can uncomment this API call when you connect to a more reliable API
-    /*
-    const response = await axios.get<JamendoResponse>(`${API_BASE_URL}/tracks/`, {
-      params: {
-        client_id: CLIENT_ID,
-        format: 'json',
-        limit,
-        include: 'musicinfo',
-        boost: 'popularity_total',
+    try {
+      // Call our Supabase Edge Function to get trending songs
+      const response = await axios.get(`${EDGE_FUNCTION_URL}/trending`);
+      
+      if (response.data && response.data.songs) {
+        // Map JioSaavn response to our Song format
+        const tracks = response.data.songs.map(convertJioSaavnTrackToSong);
+        console.log(`Fetched ${tracks.length} tracks from JioSaavn API`);
+        return tracks;
       }
-    });
-
-    console.log("API Response:", response.data.headers);
-
-    if (response.data.headers.code !== 200 || !response.data.results) {
-      console.error('API Error:', response.data.headers.error_message || 'Unknown error');
-      return fallbackTracks;
+    } catch (apiError) {
+      console.error('Error fetching from JioSaavn API:', apiError);
+      console.log('Falling back to reliable tracks');
     }
-
-    const tracks = response.data.results.map(track => ({
-      id: track.id,
-      title: track.name,
-      artist: track.artist_name,
-      albumArt: track.album_image,
-      audioUrl: track.audio,
-      duration: track.duration,
-      genre: track.genres?.[0] || 'Unknown',
-      language: Math.random() > 0.3 ? "english" as const : "hindi" as const,
-    }));
-    */
     
-    console.log(`Using ${fallbackTracks.length} reliable tracks instead of API`);
+    // Return fallback tracks if API fails
     return fallbackTracks;
   } catch (error) {
-    console.error('Error fetching tracks:', error);
-    console.log('Using fallback tracks instead');
+    console.error('Error in fetchTracks:', error);
     return fallbackTracks;
   }
 };
@@ -160,62 +135,40 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
   if (!query.trim()) return [];
   
   try {
-    console.log(`Searching tracks with query: "${query}"`);
+    console.log(`Searching JioSaavn for: "${query}"`);
     
-    // Currently using fallback tracks for search as well
+    try {
+      // Call our Supabase Edge Function to search for songs
+      const response = await axios.get(`${EDGE_FUNCTION_URL}/search`, {
+        params: { query }
+      });
+      
+      if (response.data && response.data.songs) {
+        // Map JioSaavn response to our Song format
+        const tracks = response.data.songs.map(convertJioSaavnTrackToSong);
+        console.log(`Found ${tracks.length} tracks for query "${query}" from JioSaavn API`);
+        return tracks;
+      }
+    } catch (apiError) {
+      console.error('Error searching JioSaavn API:', apiError);
+      console.log('Falling back to local search');
+    }
+    
+    // Fallback to filtering local tracks if API fails
     const filteredFallbacks = fallbackTracks.filter(track => 
       track.title.toLowerCase().includes(query.toLowerCase()) || 
       track.artist.toLowerCase().includes(query.toLowerCase()) ||
       track.genre.toLowerCase().includes(query.toLowerCase())
     );
     
-    // Simulating network delay for realism
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    console.log(`Found ${filteredFallbacks.length} tracks for query "${query}"`);
-    return filteredFallbacks.length > 0 ? filteredFallbacks : [];
-    
-    // Uncomment below when connecting to a real API
-    /*
-    const response = await axios.get<JamendoResponse>(`${API_BASE_URL}/tracks/`, {
-      params: {
-        client_id: CLIENT_ID,
-        format: 'json',
-        limit,
-        namesearch: query,
-        include: 'musicinfo',
-      }
-    });
-
-    if (response.data.headers.code !== 200 || !response.data.results) {
-      console.error('API Error:', response.data.headers.error_message || 'Unknown error');
-      const filteredFallbacks = fallbackTracks.filter(track => 
-        track.title.toLowerCase().includes(query.toLowerCase()) || 
-        track.artist.toLowerCase().includes(query.toLowerCase())
-      );
-      return filteredFallbacks.length > 0 ? filteredFallbacks : [];
-    }
-
-    const tracks = response.data.results.map(track => ({
-      id: track.id,
-      title: track.name,
-      artist: track.artist_name,
-      albumArt: track.album_image,
-      audioUrl: track.audio,
-      duration: track.duration,
-      genre: track.genres?.[0] || 'Unknown',
-      language: Math.random() > 0.3 ? "english" as const : "hindi" as const,
-    }));
-    
-    return tracks;
-    */
+    return filteredFallbacks;
   } catch (error) {
-    console.error('Error searching tracks:', error);
+    console.error('Error in searchTracks:', error);
     // Filter fallback tracks based on the query
     const filteredFallbacks = fallbackTracks.filter(track => 
       track.title.toLowerCase().includes(query.toLowerCase()) || 
       track.artist.toLowerCase().includes(query.toLowerCase())
     );
-    return filteredFallbacks.length > 0 ? filteredFallbacks : [];
+    return filteredFallbacks;
   }
 };

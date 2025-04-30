@@ -115,7 +115,7 @@ export const useAudioPlayer = () => {
     setProgress(0);
     setCurrentSong(song);
     
-    // Use the song's audio URL directly - should be reliable with our updated tracks
+    // Use the song's audio URL directly
     audioRef.current.src = song.audioUrl;
     audioRef.current.load();
     audioRef.current.volume = volume;

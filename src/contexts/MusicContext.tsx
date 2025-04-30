@@ -94,12 +94,27 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const audio = new Audio();
           audio.src = tracks[0].audioUrl;
           audio.preload = 'metadata';
+          
+          toast({
+            title: "Songs Loaded",
+            description: `${tracks.length} songs loaded successfully.`,
+          });
         } else {
           setLoadingError("No songs found. Please try again later.");
+          toast({
+            title: "No Songs Found",
+            description: "Failed to load songs. Using fallback tracks.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Failed to load songs:", error);
         setLoadingError("Failed to load songs. Please check your connection and try again.");
+        toast({
+          title: "Error Loading Songs",
+          description: "Using fallback tracks instead.",
+          variant: "destructive",
+        });
       } finally {
         setLoadingSongs(false);
       }
