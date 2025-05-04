@@ -10,6 +10,16 @@ export const useMatchmaking = () => {
   const [activeListeners, setActiveListeners] = useState<Record<string, number>>({});
   const [previousMatches, setPreviousMatches] = useState<string[]>([]);
 
+  // Add a new testing function to force a match
+  const forceMatch = (song: Song) => {
+    console.log("Force matching for song:", song.title);
+    simulateMatch(song);
+    toast({
+      title: "Test Match Created",
+      description: "A test match has been created for debugging purposes",
+    });
+  };
+
   const findMatch = (song: Song) => {
     console.log("Finding match for song:", song.title);
     const listeners = activeListeners[song.id] || 0;
@@ -219,6 +229,7 @@ export const useMatchmaking = () => {
     activeListeners,
     setActiveListeners,
     findMatch,
+    forceMatch,
     sendMessage,
     toggleChat,
     matchTimer,

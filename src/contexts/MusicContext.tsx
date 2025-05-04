@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks } from '@/services/musicApi';
@@ -32,6 +31,7 @@ interface MusicContextType {
   loadingSongs: boolean;
   loadingError: string | null;
   activeListeners: Record<string, number>;
+  testMatchmaking: (song: Song) => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -71,6 +71,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     activeListeners,
     setActiveListeners,
     findMatch,
+    forceMatch,
     sendMessage,
     toggleChat,
     matchTimer,
@@ -206,6 +207,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const testMatchmaking = (song: Song) => {
+    forceMatch(song);
+  };
+
   const value = {
     songs,
     currentSong,
@@ -230,7 +235,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     getSongsByLanguage,
     loadingSongs,
     loadingError,
-    activeListeners
+    activeListeners,
+    testMatchmaking
   };
 
   return (

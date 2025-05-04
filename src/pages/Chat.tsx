@@ -9,7 +9,7 @@ import { useMusic } from '@/contexts/MusicContext';
 import { Input } from '@/components/ui/input';
 
 const Chat: React.FC = () => {
-  const { toggleChat, songs, loadSong } = useMusic();
+  const { toggleChat, songs, loadSong, currentSong, testMatchmaking } = useMusic();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<{name: string, message: string, time: string, avatar?: string}[]>([]);
   
@@ -54,6 +54,15 @@ const Chat: React.FC = () => {
     }
   };
 
+  const handleTestMatch = () => {
+    if (currentSong) {
+      testMatchmaking(currentSong);
+    } else if (songs.length > 0) {
+      // If no current song, use the first song in the list
+      testMatchmaking(songs[0]);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
       <Header />
@@ -62,10 +71,15 @@ const Chat: React.FC = () => {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold">Your Messages</h1>
-            <Button onClick={() => toggleChat()} className="bg-dhun-purple hover:bg-dhun-purple/90">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              New Chat
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => toggleChat()} className="bg-dhun-purple hover:bg-dhun-purple/90">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                New Chat
+              </Button>
+              <Button onClick={handleTestMatch} className="bg-dhun-orange hover:bg-dhun-orange/90">
+                Test Match
+              </Button>
+            </div>
           </div>
           
           {/* Search */}
@@ -94,10 +108,15 @@ const Chat: React.FC = () => {
               <p className="text-gray-600 dark:text-gray-300 mb-4">
                 Start listening to music and connect with others who share your taste! When someone listens to the same song, you'll be matched automatically.
               </p>
-              <Button onClick={() => toggleChat()} className="w-full bg-dhun-purple hover:bg-dhun-purple/90">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Open Chat
-              </Button>
+              <div className="space-y-3">
+                <Button onClick={() => toggleChat()} className="w-full bg-dhun-purple hover:bg-dhun-purple/90">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Open Chat
+                </Button>
+                <Button onClick={handleTestMatch} className="w-full bg-dhun-orange hover:bg-dhun-orange/90">
+                  Test Matchmaking
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
