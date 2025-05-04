@@ -1,23 +1,46 @@
 import { useState, useEffect } from 'react';
 import { User, Chat, Message, Song } from '@/types';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useMatchmaking = () => {
+  const { currentUser } = useAuth();
   const [currentMatch, setCurrentMatch] = useState<User | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
   const [matchTimer, setMatchTimer] = useState<NodeJS.Timeout | null>(null);
   const [activeListeners, setActiveListeners] = useState<Record<string, number>>({});
   const [previousMatches, setPreviousMatches] = useState<string[]>([]);
+  const [connectedUsers, setConnectedUsers] = useState<User[]>([]);
 
   // Add a new testing function to force a match
   const forceMatch = (song: Song) => {
     console.log("Force matching for song:", song.title);
-    simulateMatch(song);
-    toast({
-      title: "Test Match Created",
-      description: "A test match has been created for debugging purposes",
-    });
+    if (currentUser) {
+      // Check if we have connected users for a real match
+      if (connectedUsers.length > 0) {
+        // Pick a random connected user
+        const randomUser = connectedUsers[Math.floor(Math.random() * connectedUsers.length)];
+        simulateRealMatch(song, randomUser);
+        toast({
+          title: "Match Found!",
+          description: `You've matched with ${randomUser.name} who is listening to the same song.`,
+        });
+      } else {
+        // Fall back to simulated match if no real users are connected
+        simulateMatch(song);
+        toast({
+          title: "Test Match Created",
+          description: "A test match has been created for debugging purposes",
+        });
+      }
+    } else {
+      toast({
+        title: "Not Logged In",
+        description: "Please login to find matches.",
+        variant: "destructive",
+      });
+    }
   };
 
   const findMatch = (song: Song) => {
@@ -27,7 +50,15 @@ export const useMatchmaking = () => {
     
     // More realistic matching logic - higher chance when there are more listeners
     if (listeners > 0 || Math.random() > 0.3) {
-      simulateMatch(song);
+      // Check if we have connected users for a real match
+      if (connectedUsers.length > 0 && Math.random() > 0.5) {
+        // Pick a random connected user
+        const randomUser = connectedUsers[Math.floor(Math.random() * connectedUsers.length)];
+        simulateRealMatch(song, randomUser);
+      } else {
+        // Fall back to simulated match
+        simulateMatch(song);
+      }
     } else {
       console.log("No match found at this time");
       toast({
@@ -42,6 +73,44 @@ export const useMatchmaking = () => {
         }
       }, 8000);
     }
+  };
+
+  // Simulate a match with a connected real user
+  const simulateRealMatch = (song: Song, matchUser: User) => {
+    setCurrentMatch(matchUser);
+    
+    // Create a more personalized opening message with the real user
+    const openingMessages = [
+      `You and ${matchUser.name} are both enjoying "${song.title}"! Why not say hello?`,
+      `${matchUser.name} loves "${song.title}" too! Start a conversation about your shared taste.`,
+      `Musical match found! ${matchUser.name} is also listening to "${song.title}" right now.`,
+      `Great minds think alike! ${matchUser.name} is also enjoying "${song.title}". Say hi!`
+    ];
+    
+    const randomOpening = openingMessages[Math.floor(Math.random() * openingMessages.length)];
+    
+    const newChat: Chat = {
+      id: `chat-${Date.now()}`,
+      matchId: `match-${Date.now()}`,
+      users: ['current-user', matchUser.id],
+      messages: [
+        {
+          id: `msg-${Date.now()}`,
+          senderId: 'bot',
+          content: randomOpening,
+          timestamp: new Date(),
+          isBot: true,
+        }
+      ]
+    };
+    
+    setCurrentChat(newChat);
+    setChatOpen(true);
+    
+    toast({
+      title: "You found a music soulmate!",
+      description: `${matchUser.name} is also listening to ${song.title}`,
+    });
   };
 
   const simulateMatch = (song: Song) => {
@@ -100,6 +169,52 @@ export const useMatchmaking = () => {
     toast({
       title: "You found a music soulmate!",
       description: `${mockMatchUser.name} is also listening to ${song.title}`,
+    });
+  };
+
+  // Add a function to register connected users
+  const registerConnectedUser = (user: User) => {
+    setConnectedUsers(prev => {
+      // Check if user is already registered
+      if (prev.some(existingUser => existingUser.id === user.id)) {
+        return prev;
+      }
+      return [...prev, user];
+    });
+  };
+
+  // Remove user when they disconnect
+  const unregisterConnectedUser = (userId: string) => {
+    setConnectedUsers(prev => prev.filter(user => user.id !== userId));
+  };
+
+  // Mock function to simulate multiple connected users for testing
+  const addMockConnectedUsers = () => {
+    const mockUsers = [
+      {
+        id: 'user-1',
+        name: 'Alice',
+        email: 'alice@example.com',
+        avatar: `https://api.dicebear.com/7.x/micah/svg?seed=Alice`
+      },
+      {
+        id: 'user-2',
+        name: 'Bob',
+        email: 'bob@example.com',
+        avatar: `https://api.dicebear.com/7.x/micah/svg?seed=Bob`
+      },
+      {
+        id: 'user-3',
+        name: 'Charlie',
+        email: 'charlie@example.com',
+        avatar: `https://api.dicebear.com/7.x/micah/svg?seed=Charlie`
+      }
+    ];
+    
+    setConnectedUsers(mockUsers);
+    toast({
+      title: "Mock Users Connected",
+      description: `Added ${mockUsers.length} mock users for testing.`,
     });
   };
 
@@ -234,5 +349,9 @@ export const useMatchmaking = () => {
     toggleChat,
     matchTimer,
     setMatchTimer,
+    registerConnectedUser,
+    unregisterConnectedUser,
+    addMockConnectedUsers,
+    connectedUsers
   };
 };

@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks } from '@/services/musicApi';
@@ -5,6 +6,7 @@ import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
 import { useMusicRecommendations } from '@/hooks/useMusicRecommendations';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MusicContextType {
   songs: Song[];
@@ -32,6 +34,8 @@ interface MusicContextType {
   loadingError: string | null;
   activeListeners: Record<string, number>;
   testMatchmaking: (song: Song) => void;
+  addMockConnectedUsers: () => void;
+  connectedUsers: User[];
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -45,6 +49,7 @@ export const useMusic = () => {
 };
 
 export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser } = useAuth();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loadingSongs, setLoadingSongs] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -76,9 +81,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleChat,
     matchTimer,
     setMatchTimer,
+    registerConnectedUser,
+    unregisterConnectedUser,
+    addMockConnectedUsers,
+    connectedUsers
   } = useMatchmaking();
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
+
+  // Register the current authenticated user when they log in
+  useEffect(() => {
+    if (currentUser) {
+      registerConnectedUser(currentUser);
+    }
+  }, [currentUser]);
 
   // Fetch songs when component mounts
   useEffect(() => {
@@ -208,6 +224,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const testMatchmaking = (song: Song) => {
+    if (!currentUser) {
+      toast({
+        title: "Not Logged In",
+        description: "Please login to test matchmaking.",
+        variant: "destructive",
+      });
+      return;
+    }
     forceMatch(song);
   };
 
@@ -236,7 +260,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadingSongs,
     loadingError,
     activeListeners,
-    testMatchmaking
+    testMatchmaking,
+    addMockConnectedUsers,
+    connectedUsers
   };
 
   return (
