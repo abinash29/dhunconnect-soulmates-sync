@@ -1,7 +1,17 @@
+
 import { useState, useEffect } from 'react';
 import { User, Chat, Message, Song } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  registerActiveListener, 
+  unregisterActiveListener, 
+  findPotentialMatches, 
+  createMatch, 
+  sendChatMessage, 
+  getChatMessages 
+} from '@/services/musicApi';
 
 export const useMatchmaking = () => {
   const { currentUser } = useAuth();
@@ -12,20 +22,104 @@ export const useMatchmaking = () => {
   const [activeListeners, setActiveListeners] = useState<Record<string, number>>({});
   const [previousMatches, setPreviousMatches] = useState<string[]>([]);
   const [connectedUsers, setConnectedUsers] = useState<User[]>([]);
-
-  // Add a new testing function to force a match
-  const forceMatch = (song: Song) => {
+  
+  // Realtime subscription for active listeners
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const channel = supabase
+      .channel('active_listeners_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'active_listeners',
+        },
+        (payload) => {
+          console.log('Active listener change:', payload);
+          updateActiveListenersCount(payload.new?.song_id);
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
+  
+  // Update active listeners count for a song
+  const updateActiveListenersCount = async (songId: string) => {
+    if (!songId) return;
+    
+    try {
+      const { count, error } = await supabase
+        .from('active_listeners')
+        .select('id', { count: 'exact', head: true })
+        .eq('song_id', songId)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      
+      setActiveListeners(prev => ({
+        ...prev,
+        [songId]: count || 0
+      }));
+    } catch (error) {
+      console.error('Error updating active listeners count:', error);
+    }
+  };
+  
+  // Function to force a match (for testing)
+  const forceMatch = async (song: Song) => {
     console.log("Force matching for song:", song.title);
-    if (currentUser) {
-      // Check if we have connected users for a real match
-      if (connectedUsers.length > 0) {
-        // Pick a random connected user
-        const randomUser = connectedUsers[Math.floor(Math.random() * connectedUsers.length)];
-        simulateRealMatch(song, randomUser);
-        toast({
-          title: "Match Found!",
-          description: `You've matched with ${randomUser.name} who is listening to the same song.`,
-        });
+    
+    if (!currentUser) {
+      toast({
+        title: "Not Logged In",
+        description: "Please login to find matches.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Register as active listener for this song
+    await registerActiveListener(currentUser.id, song.id);
+    
+    // Check if we have connected users for a real match
+    if (connectedUsers.length > 0) {
+      // Pick a random connected user
+      const randomUser = connectedUsers[Math.floor(Math.random() * connectedUsers.length)];
+      simulateRealMatch(song, randomUser);
+      toast({
+        title: "Match Found!",
+        description: `You've matched with ${randomUser.name} who is listening to the same song.`,
+      });
+    } else {
+      // Find real matches on Supabase
+      const potentialMatches = await findPotentialMatches(currentUser.id, song.id);
+      
+      if (potentialMatches && potentialMatches.length > 0) {
+        // Get the first match
+        const match = potentialMatches[0];
+        
+        // Create a real user
+        const matchUser: User = {
+          id: match.user_id,
+          name: match.profiles?.name || 'Unknown User',
+          email: match.profiles?.email || '',
+          avatar: match.profiles?.avatar
+        };
+        
+        // Create the match in the database
+        const matchId = await createMatch(currentUser.id, matchUser.id, song.id);
+        
+        if (matchId) {
+          simulateRealMatch(song, matchUser, matchId);
+        } else {
+          // Fall back to simulated match if match creation failed
+          simulateMatch(song);
+        }
       } else {
         // Fall back to simulated match if no real users are connected
         simulateMatch(song);
@@ -34,49 +128,84 @@ export const useMatchmaking = () => {
           description: "A test match has been created for debugging purposes",
         });
       }
-    } else {
-      toast({
-        title: "Not Logged In",
-        description: "Please login to find matches.",
-        variant: "destructive",
-      });
     }
   };
-
-  const findMatch = (song: Song) => {
+  
+  // Find a match for the current song
+  const findMatch = async (song: Song) => {
     console.log("Finding match for song:", song.title);
+    
+    if (!currentUser) return;
+    
+    // Register as active listener for this song
+    await registerActiveListener(currentUser.id, song.id);
+    
+    // Get current listeners for this song
     const listeners = activeListeners[song.id] || 0;
     console.log("Active listeners for this song:", listeners);
     
-    // More realistic matching logic - higher chance when there are more listeners
-    if (listeners > 0 || Math.random() > 0.3) {
-      // Check if we have connected users for a real match
-      if (connectedUsers.length > 0 && Math.random() > 0.5) {
-        // Pick a random connected user
-        const randomUser = connectedUsers[Math.floor(Math.random() * connectedUsers.length)];
-        simulateRealMatch(song, randomUser);
+    // Look for real matches
+    const potentialMatches = await findPotentialMatches(currentUser.id, song.id);
+    
+    if (potentialMatches && potentialMatches.length > 0) {
+      // Get the first match
+      const match = potentialMatches[0];
+      
+      // Create a real user
+      const matchUser: User = {
+        id: match.user_id,
+        name: match.profiles?.name || 'Unknown User',
+        email: match.profiles?.email || '',
+        avatar: match.profiles?.avatar
+      };
+      
+      // Create the match in the database
+      const matchId = await createMatch(currentUser.id, matchUser.id, song.id);
+      
+      if (matchId) {
+        simulateRealMatch(song, matchUser, matchId);
       } else {
-        // Fall back to simulated match
-        simulateMatch(song);
+        // More realistic matching logic - higher chance when there are more listeners
+        if (listeners > 0 || Math.random() > 0.3) {
+          simulateMatch(song);
+        } else {
+          console.log("No match found at this time");
+          toast({
+            title: "Looking for matches",
+            description: "We'll notify you when someone else starts listening to this song",
+          });
+          
+          // Set a timer to check again in a few seconds
+          setTimeout(() => {
+            if (Math.random() > 0.5) {
+              simulateMatch(song);
+            }
+          }, 8000);
+        }
       }
     } else {
-      console.log("No match found at this time");
-      toast({
-        title: "Looking for matches",
-        description: "We'll notify you when someone else starts listening to this song",
-      });
-      
-      // Set a timer to check again in a few seconds
-      setTimeout(() => {
-        if (Math.random() > 0.5) {
-          simulateMatch(song);
-        }
-      }, 8000);
+      // More realistic matching logic - higher chance when there are more listeners
+      if (listeners > 0 || Math.random() > 0.3) {
+        simulateMatch(song);
+      } else {
+        console.log("No match found at this time");
+        toast({
+          title: "Looking for matches",
+          description: "We'll notify you when someone else starts listening to this song",
+        });
+        
+        // Set a timer to check again in a few seconds
+        setTimeout(() => {
+          if (Math.random() > 0.5) {
+            simulateMatch(song);
+          }
+        }, 8000);
+      }
     }
   };
-
-  // Simulate a match with a connected real user
-  const simulateRealMatch = (song: Song, matchUser: User) => {
+  
+  // Simulate a match with a real user
+  const simulateRealMatch = (song: Song, matchUser: User, matchId?: string) => {
     setCurrentMatch(matchUser);
     
     // Create a more personalized opening message with the real user
@@ -89,10 +218,12 @@ export const useMatchmaking = () => {
     
     const randomOpening = openingMessages[Math.floor(Math.random() * openingMessages.length)];
     
+    const chatId = matchId || `chat-${Date.now()}`;
+    
     const newChat: Chat = {
-      id: `chat-${Date.now()}`,
-      matchId: `match-${Date.now()}`,
-      users: ['current-user', matchUser.id],
+      id: chatId,
+      matchId: chatId,
+      users: [currentUser?.id || 'current-user', matchUser.id],
       messages: [
         {
           id: `msg-${Date.now()}`,
@@ -111,8 +242,15 @@ export const useMatchmaking = () => {
       title: "You found a music soulmate!",
       description: `${matchUser.name} is also listening to ${song.title}`,
     });
+    
+    // If we have a real match ID, save the first message
+    if (matchId && currentUser) {
+      // We'll send the bot message to the database
+      sendChatMessage(matchId, 'bot', randomOpening);
+    }
   };
-
+  
+  // Simulate a match with a generated user (fallback)
   const simulateMatch = (song: Song) => {
     const names = ["Alex", "Taylor", "Jordan", "Morgan", "Riley", "Casey", "Avery", "Quinn", "Dakota", "Skyler"];
     
@@ -171,7 +309,7 @@ export const useMatchmaking = () => {
       description: `${mockMatchUser.name} is also listening to ${song.title}`,
     });
   };
-
+  
   // Add a function to register connected users
   const registerConnectedUser = (user: User) => {
     setConnectedUsers(prev => {
@@ -182,12 +320,12 @@ export const useMatchmaking = () => {
       return [...prev, user];
     });
   };
-
+  
   // Remove user when they disconnect
   const unregisterConnectedUser = (userId: string) => {
     setConnectedUsers(prev => prev.filter(user => user.id !== userId));
   };
-
+  
   // Mock function to simulate multiple connected users for testing
   const addMockConnectedUsers = () => {
     const mockUsers = [
@@ -217,15 +355,16 @@ export const useMatchmaking = () => {
       description: `Added ${mockUsers.length} mock users for testing.`,
     });
   };
-
-  const sendMessage = (content: string) => {
-    if (!currentChat) return;
+  
+  // Send a chat message
+  const sendMessage = async (content: string) => {
+    if (!currentChat || !currentUser) return;
     
     console.log("Sending message:", content);
     
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
-      senderId: 'current-user',
+      senderId: currentUser.id,
       content,
       timestamp: new Date(),
     };
@@ -237,14 +376,23 @@ export const useMatchmaking = () => {
     
     setCurrentChat(updatedChat);
     
-    // Simulate typing delay based on message length
-    const typingDelay = Math.min(1000 + content.length * 30, 3000);
+    // If this is a real match (has a UUID match ID), save the message to the database
+    if (currentChat.matchId.length > 20) { // Simple check for UUID format
+      await sendChatMessage(currentChat.matchId, currentUser.id, content);
+    }
     
-    setTimeout(() => {
-      simulateResponse(content);
-    }, typingDelay);
+    // For simulated matches, simulate a response
+    if (currentChat.matchId.length < 20) {
+      // Simulate typing delay based on message length
+      const typingDelay = Math.min(1000 + content.length * 30, 3000);
+      
+      setTimeout(() => {
+        simulateResponse(content);
+      }, typingDelay);
+    }
   };
-
+  
+  // Simulate a response (for mock matches only)
   const simulateResponse = (userMessage: string) => {
     if (!currentChat || !currentMatch) return;
     
@@ -332,11 +480,11 @@ export const useMatchmaking = () => {
       };
     });
   };
-
+  
   const toggleChat = () => {
     setChatOpen(!chatOpen);
   };
-
+  
   return {
     currentMatch,
     chatOpen,

@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 const Signup: React.FC = () => {
-  const { signup, isLoading } = useAuth();
+  const { isLoading } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,10 +38,38 @@ const Signup: React.FC = () => {
     }
     
     try {
-      await signup(name, email, password);
-      navigate('/');
-    } catch (err) {
-      // Error is handled in AuthProvider via toast
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.user) {
+        toast({
+          title: "Sign Up Successful",
+          description: "Your account has been created. You're now logged in!",
+        });
+        navigate('/');
+      } else {
+        // In case email confirmation is enabled
+        toast({
+          title: "Check Your Email",
+          description: "We've sent you a confirmation link. Please verify your email to continue.",
+        });
+      }
+    } catch (err: any) {
+      setError(err.message || "Signup failed. Please try again.");
+      toast({
+        title: "Sign Up Failed",
+        description: err.message || "An error occurred during signup. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 

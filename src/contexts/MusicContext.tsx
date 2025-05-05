@@ -1,10 +1,11 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
-import { fetchTracks, searchTracks } from '@/services/musicApi';
+import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
 import { useMusicRecommendations } from '@/hooks/useMusicRecommendations';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -88,12 +89,23 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   } = useMatchmaking();
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
+  
+  // Use the Supabase realtime hook
+  const { newMatches, newMessages } = useSupabaseRealtime();
 
   // Register the current authenticated user when they log in
   useEffect(() => {
     if (currentUser) {
       registerConnectedUser(currentUser);
     }
+    
+    // Clean up when user logs out or component unmounts
+    return () => {
+      if (currentUser) {
+        // Update active listener status to inactive
+        unregisterActiveListener(currentUser.id);
+      }
+    };
   }, [currentUser]);
 
   // Fetch songs when component mounts
@@ -102,7 +114,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         setLoadingSongs(true);
         setLoadingError(null);
-        console.log("Attempting to fetch tracks...");
+        console.log("Attempting to fetch tracks from Supabase...");
         const tracks = await fetchTracks(50);
         console.log(`Fetched ${tracks.length} tracks`);
         if (tracks.length > 0) {
@@ -140,40 +152,16 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadSongs();
   }, []);
 
-  // Simulate active listeners
-  useEffect(() => {
-    const initialListeners: Record<string, number> = {};
-    songs.forEach(song => {
-      if (Math.random() > 0.7) {
-        initialListeners[song.id] = Math.floor(Math.random() * 5);
-      }
-    });
-    setActiveListeners(initialListeners);
-    
-    const interval = setInterval(() => {
-      setActiveListeners(prev => {
-        const updated = { ...prev };
-        songs.forEach(song => {
-          if (Math.random() > 0.8) {
-            if (updated[song.id]) {
-              updated[song.id] = Math.max(0, updated[song.id] + (Math.random() > 0.5 ? 1 : -1));
-              if (updated[song.id] === 0) delete updated[song.id];
-            } else if (Math.random() > 0.7) {
-              updated[song.id] = 1;
-            }
-          }
-        });
-        return updated;
-      });
-    }, 10000);
-    
-    return () => clearInterval(interval);
-  }, [songs]);
-
+  // Track user's active listening status
   const loadSong = (song: Song) => {
     loadAudioSong(song);
     
     // Update active listeners for this song
+    if (currentUser) {
+      registerActiveListener(currentUser.id, song.id);
+    }
+    
+    // Update active listeners count for this song
     setActiveListeners(prev => {
       const updated = { ...prev };
       updated[song.id] = (updated[song.id] || 0) + 1;

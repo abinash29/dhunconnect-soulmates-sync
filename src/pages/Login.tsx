@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Login: React.FC = () => {
   const { login, isLoading, isAuthenticated } = useAuth();
@@ -34,24 +35,71 @@ const Login: React.FC = () => {
     }
     
     try {
-      await login(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${data.user?.email}`,
+      });
+      
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
+      toast({
+        title: "Login Failed",
+        description: err.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDemoLogin = async () => {
     try {
       setLoginAttempted(true);
-      await login('demo@example.com', 'password');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: 'demo@example.com',
+        password: 'password'
+      });
+      
+      if (error) throw error;
+      
       toast({
         title: "Demo Login Successful",
         description: "You're now logged in as a demo user",
       });
+      
       navigate('/');
-    } catch (err) {
+    } catch (err: any) {
       setError('Demo login failed. Please try again.');
+      
+      // Create demo user if it doesn't exist
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: 'demo@example.com',
+          password: 'password',
+          options: {
+            data: {
+              name: 'Demo User'
+            }
+          }
+        });
+        
+        if (error) throw error;
+        
+        // Try logging in again
+        await handleDemoLogin();
+      } catch (signupError: any) {
+        toast({
+          title: "Demo Login Failed",
+          description: "Could not create or login to demo account.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

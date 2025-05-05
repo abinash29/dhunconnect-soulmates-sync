@@ -1,12 +1,9 @@
-import axios from 'axios';
+
+import { supabase } from '@/integrations/supabase/client';
 import { Song } from '@/types';
+import { toast } from '@/hooks/use-toast';
 
-// Base URL for our Supabase Edge Function (will be created later)
-const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL 
-  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/jiosaavn-api`
-  : '/api/jiosaavn-api'; // fallback for local dev
-
-// Existing fallback tracks for reliability
+// Fallback tracks for reliability in case of connection issues
 const fallbackTracks: Song[] = [
   {
     id: "fallback-1",
@@ -90,45 +87,46 @@ const fallbackTracks: Song[] = [
   }
 ];
 
-// New function to convert JioSaavn track format to our app's Song format
-const convertJioSaavnTrackToSong = (track: any): Song => {
+// Convert Supabase song format to our app's Song format
+const convertSupabaseSongToSong = (track: any): Song => {
   return {
-    id: track.id || `saavn-${Math.random().toString(36).substring(7)}`,
-    title: track.name || track.title || 'Unknown Title',
-    artist: track.primaryArtists || track.artist || 'Unknown Artist',
-    albumArt: track.image?.[2]?.link || track.image || 'https://via.placeholder.com/150',
-    audioUrl: track.downloadUrl?.[4]?.link || track.downloadUrl?.[2]?.link || track.downloadUrl || track.url || track.media_url,
+    id: track.id || `song-${Math.random().toString(36).substring(7)}`,
+    title: track.title || 'Unknown Title',
+    artist: track.artist || 'Unknown Artist',
+    albumArt: track.album_art || 'https://via.placeholder.com/150',
+    audioUrl: track.audio_url || '',
     duration: track.duration || 0,
-    genre: track.language || 'Unknown',
+    genre: track.genre || 'Unknown',
     language: track.language?.toLowerCase() === 'hindi' ? 'hindi' : 'english' as const
   };
 };
 
 export const fetchTracks = async (limit = 20): Promise<Song[]> => {
   try {
-    console.log("Attempting to fetch tracks from JioSaavn API...");
+    console.log("Fetching tracks from Supabase...");
     
-    try {
-      // Call our Supabase Edge Function to get trending songs
-      const response = await axios.get(`${EDGE_FUNCTION_URL}/trending`, {
-        params: { limit }
-      });
-      
-      if (response.data && response.data.data) {
-        // Map JioSaavn response to our Song format
-        const tracks = response.data.data.map(convertJioSaavnTrackToSong);
-        console.log(`Fetched ${tracks.length} tracks from JioSaavn API`);
-        return tracks;
-      }
-    } catch (apiError) {
-      console.error('Error fetching from JioSaavn API:', apiError);
-      console.log('Falling back to reliable tracks');
+    // Fetch songs from Supabase
+    const { data: songs, error } = await supabase
+      .from('songs')
+      .select('*')
+      .limit(limit);
+    
+    if (error) {
+      throw error;
     }
     
-    // Return fallback tracks if API fails
-    return fallbackTracks;
+    if (songs && songs.length > 0) {
+      // Map Supabase response to our Song format
+      const tracks = songs.map(convertSupabaseSongToSong);
+      console.log(`Fetched ${tracks.length} tracks from Supabase`);
+      return tracks;
+    } else {
+      console.log('No songs found in Supabase, using fallback tracks');
+      return fallbackTracks;
+    }
   } catch (error) {
-    console.error('Error in fetchTracks:', error);
+    console.error('Error fetching from Supabase:', error);
+    console.log('Falling back to reliable tracks');
     return fallbackTracks;
   }
 };
@@ -137,40 +135,220 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
   if (!query.trim()) return [];
   
   try {
-    console.log(`Searching JioSaavn for: "${query}"`);
+    console.log(`Searching Supabase for: "${query}"`);
     
-    try {
-      // Call our Supabase Edge Function to search for songs
-      const response = await axios.get(`${EDGE_FUNCTION_URL}/search`, {
-        params: { query, limit }
-      });
-      
-      if (response.data && response.data.data) {
-        // Map JioSaavn response to our Song format
-        const tracks = response.data.data.map(convertJioSaavnTrackToSong);
-        console.log(`Found ${tracks.length} tracks for query "${query}" from JioSaavn API`);
-        return tracks;
-      }
-    } catch (apiError) {
-      console.error('Error searching JioSaavn API:', apiError);
-      console.log('Falling back to local search');
+    // Search songs in Supabase
+    const { data: songs, error } = await supabase
+      .from('songs')
+      .select('*')
+      .or(`title.ilike.%${query}%,artist.ilike.%${query}%,genre.ilike.%${query}%`)
+      .limit(limit);
+    
+    if (error) {
+      throw error;
     }
     
-    // Fallback to filtering local tracks if API fails
-    const filteredFallbacks = fallbackTracks.filter(track => 
-      track.title.toLowerCase().includes(query.toLowerCase()) || 
-      track.artist.toLowerCase().includes(query.toLowerCase()) ||
-      track.genre.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    return filteredFallbacks;
+    if (songs && songs.length > 0) {
+      // Map Supabase response to our Song format
+      const tracks = songs.map(convertSupabaseSongToSong);
+      console.log(`Found ${tracks.length} tracks for query "${query}" from Supabase`);
+      return tracks;
+    } else {
+      console.log(`No results found for "${query}", filtering fallback tracks`);
+      // Fallback to filtering local tracks if no results
+      const filteredFallbacks = fallbackTracks.filter(track => 
+        track.title.toLowerCase().includes(query.toLowerCase()) || 
+        track.artist.toLowerCase().includes(query.toLowerCase()) ||
+        track.genre.toLowerCase().includes(query.toLowerCase())
+      );
+      return filteredFallbacks;
+    }
   } catch (error) {
-    console.error('Error in searchTracks:', error);
+    console.error('Error searching in Supabase:', error);
     // Filter fallback tracks based on the query
     const filteredFallbacks = fallbackTracks.filter(track => 
       track.title.toLowerCase().includes(query.toLowerCase()) || 
       track.artist.toLowerCase().includes(query.toLowerCase())
     );
     return filteredFallbacks;
+  }
+};
+
+// New functions for active listener management and matchmaking
+export const registerActiveListener = async (userId: string, songId: string): Promise<void> => {
+  if (!userId || !songId) return;
+  
+  try {
+    // First, update any existing active listener records for this user to inactive
+    await supabase
+      .from('active_listeners')
+      .update({ is_active: false })
+      .eq('user_id', userId);
+    
+    // Now create a new active listener record
+    const { error } = await supabase
+      .from('active_listeners')
+      .upsert({ 
+        user_id: userId, 
+        song_id: songId, 
+        started_at: new Date().toISOString(),
+        is_active: true
+      }, {
+        onConflict: 'user_id,song_id',
+        ignoreDuplicates: false
+      });
+    
+    if (error) {
+      console.error('Error registering active listener:', error);
+    }
+  } catch (error) {
+    console.error('Error in registerActiveListener:', error);
+  }
+};
+
+export const unregisterActiveListener = async (userId: string): Promise<void> => {
+  if (!userId) return;
+  
+  try {
+    // Mark all active listener records for this user as inactive
+    const { error } = await supabase
+      .from('active_listeners')
+      .update({ is_active: false })
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('Error unregistering active listener:', error);
+    }
+  } catch (error) {
+    console.error('Error in unregisterActiveListener:', error);
+  }
+};
+
+export const findPotentialMatches = async (userId: string, songId: string): Promise<any[]> => {
+  if (!userId || !songId) return [];
+  
+  try {
+    // Find other active listeners for the same song
+    const { data, error } = await supabase
+      .from('active_listeners')
+      .select(`
+        id,
+        user_id,
+        profiles:user_id (id, name, avatar, email)
+      `)
+      .eq('song_id', songId)
+      .eq('is_active', true)
+      .neq('user_id', userId)
+      .limit(5);
+    
+    if (error) {
+      console.error('Error finding potential matches:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in findPotentialMatches:', error);
+    return [];
+  }
+};
+
+export const createMatch = async (user1Id: string, user2Id: string, songId: string): Promise<string | null> => {
+  if (!user1Id || !user2Id || !songId) return null;
+  
+  try {
+    // Create a new match
+    const { data, error } = await supabase
+      .from('matches')
+      .insert({ 
+        user1_id: user1Id, 
+        user2_id: user2Id, 
+        song_id: songId
+      })
+      .select('id')
+      .single();
+    
+    if (error) {
+      console.error('Error creating match:', error);
+      return null;
+    }
+    
+    return data?.id || null;
+  } catch (error) {
+    console.error('Error in createMatch:', error);
+    return null;
+  }
+};
+
+export const sendChatMessage = async (matchId: string, senderId: string, content: string): Promise<boolean> => {
+  if (!matchId || !senderId || !content.trim()) return false;
+  
+  try {
+    const { error } = await supabase
+      .from('chat_messages')
+      .insert({ 
+        match_id: matchId, 
+        sender_id: senderId, 
+        content
+      });
+    
+    if (error) {
+      console.error('Error sending chat message:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in sendChatMessage:', error);
+    return false;
+  }
+};
+
+export const getChatMessages = async (matchId: string): Promise<any[]> => {
+  if (!matchId) return [];
+  
+  try {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select(`
+        id,
+        content,
+        created_at,
+        sender:sender_id (id, name, avatar)
+      `)
+      .eq('match_id', matchId)
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error('Error getting chat messages:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getChatMessages:', error);
+    return [];
+  }
+};
+
+export const getActiveListenerCount = async (songId: string): Promise<number> => {
+  if (!songId) return 0;
+  
+  try {
+    const { count, error } = await supabase
+      .from('active_listeners')
+      .select('id', { count: 'exact', head: true })
+      .eq('song_id', songId)
+      .eq('is_active', true);
+    
+    if (error) {
+      console.error('Error getting active listener count:', error);
+      return 0;
+    }
+    
+    return count || 0;
+  } catch (error) {
+    console.error('Error in getActiveListenerCount:', error);
+    return 0;
   }
 };
