@@ -2,6 +2,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User } from '../types';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -25,46 +27,107 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing user session in localStorage
-    const storedUser = localStorage.getItem('dhunconnect_user');
-    if (storedUser) {
-      try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('dhunconnect_user');
+    // First set up the auth state listener to catch changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        console.log('Auth state changed:', event, newSession);
+        setSession(newSession);
+        
+        if (newSession?.user) {
+          // Get the user profile from our profiles table
+          setTimeout(async () => {
+            try {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', newSession.user.id)
+                .single();
+                
+              if (profileError) throw profileError;
+              
+              if (profileData) {
+                const userData: User = {
+                  id: profileData.id,
+                  name: profileData.name || 'Unknown User',
+                  email: profileData.email || newSession.user.email || '',
+                  avatar: profileData.avatar
+                };
+                
+                setCurrentUser(userData);
+              }
+            } catch (error) {
+              console.error('Error fetching user profile:', error);
+            }
+          }, 0);
+        } else {
+          setCurrentUser(null);
+        }
       }
-    }
-    setIsLoading(false);
+    );
+
+    // Then check for an existing session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        console.log('Existing session:', existingSession);
+        
+        setSession(existingSession);
+        
+        if (existingSession?.user) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', existingSession.user.id)
+            .single();
+            
+          if (profileError) throw profileError;
+          
+          if (profileData) {
+            const userData: User = {
+              id: profileData.id,
+              name: profileData.name || 'Unknown User',
+              email: profileData.email || existingSession.user.email || '',
+              avatar: profileData.avatar
+            };
+            
+            setCurrentUser(userData);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // Clean up the subscription when the component unmounts
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Mock login function
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
       
-      // Simplified login for demo purposes
-      // Accept any email/password combination for demo
-      const seed = email.split('@')[0];
-      const avatarUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}`;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      const mockUser: User = {
-        id: Date.now().toString(),
-        name: email.split('@')[0],
-        email: email,
-        avatar: avatarUrl,
-      };
-      
-      setCurrentUser(mockUser);
-      localStorage.setItem('dhunconnect_user', JSON.stringify(mockUser));
+      if (error) throw error;
       
       toast({
         title: "Login successful",
         description: "Welcome to DhunConnect!",
       });
+
     } catch (error) {
       toast({
         title: "Login failed",
@@ -77,7 +140,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Mock signup function
   const signup = async (name: string, email: string, password: string) => {
     try {
       setIsLoading(true);
@@ -98,24 +160,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Password must be at least 6 characters');
       }
       
-      // For demo purposes, create a new user with a generated avatar
-      const seed = name.replace(/\s+/g, '-').toLowerCase();
-      const avatarUrl = `https://api.dicebear.com/7.x/micah/svg?seed=${seed}`;
-      
-      const newUser: User = {
-        id: Date.now().toString(),
-        name,
+      const { data, error } = await supabase.auth.signUp({
         email,
-        avatar: avatarUrl,
-      };
+        password,
+        options: {
+          data: {
+            name
+          }
+        }
+      });
       
-      setCurrentUser(newUser);
-      localStorage.setItem('dhunconnect_user', JSON.stringify(newUser));
+      if (error) throw error;
       
       toast({
         title: "Account created successfully",
         description: "Welcome to DhunConnect!",
       });
+      
     } catch (error) {
       toast({
         title: "Signup failed",
@@ -128,25 +189,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('dhunconnect_user');
-    setCurrentUser(null);
-    toast({
-      title: "Logged out successfully",
-    });
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged out successfully",
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      toast({
+        title: "Logout failed",
+        description: "An error occurred during logout",
+        variant: "destructive",
+      });
+    }
   };
   
-  const updateUser = (userData: Partial<User>) => {
+  const updateUser = async (userData: Partial<User>) => {
     if (!currentUser) return;
     
-    const updatedUser = { ...currentUser, ...userData };
-    setCurrentUser(updatedUser);
-    localStorage.setItem('dhunconnect_user', JSON.stringify(updatedUser));
-    
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully",
-    });
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          name: userData.name,
+          avatar: userData.avatar
+        })
+        .eq('id', currentUser.id);
+      
+      if (error) throw error;
+      
+      const updatedUser = { ...currentUser, ...userData };
+      setCurrentUser(updatedUser);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update your profile",
+        variant: "destructive",
+      });
+    }
   };
 
   const value = {

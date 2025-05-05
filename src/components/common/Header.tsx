@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Home, MessageSquare, User, Search, LogOut, Music, Menu } from 'lucide-react'; // Added Menu icon import
+import { Home, MessageSquare, User, Search, LogOut, Music, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useMusic } from '@/contexts/MusicContext';
 
@@ -14,6 +14,7 @@ const Header: React.FC = () => {
   const { searchSongs, searchResults, loadSong } = useMusic();
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     searchSongs(e.target.value);
@@ -27,7 +28,14 @@ const Header: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const isActive = (path: string) => location.pathname === path;
+
+  console.log('Auth state in Header:', { isAuthenticated, currentUser });
 
   return (
     <header className="bg-white dark:bg-dhun-dark shadow-md sticky top-0 z-50">
@@ -52,25 +60,29 @@ const Header: React.FC = () => {
             </Button>
           </Link>
           
-          <Link to="/chat">
-            <Button 
-              variant={isActive('/chat') ? "default" : "ghost"} 
-              size="icon" 
-              className={isActive('/chat') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
-            >
-              <MessageSquare className="h-5 w-5" />
-            </Button>
-          </Link>
-          
-          <Link to="/profile">
-            <Button 
-              variant={isActive('/profile') ? "default" : "ghost"} 
-              size="icon" 
-              className={isActive('/profile') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
-            >
-              <User className="h-5 w-5" />
-            </Button>
-          </Link>
+          {isAuthenticated && (
+            <>
+              <Link to="/chat">
+                <Button 
+                  variant={isActive('/chat') ? "default" : "ghost"} 
+                  size="icon" 
+                  className={isActive('/chat') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
+                >
+                  <MessageSquare className="h-5 w-5" />
+                </Button>
+              </Link>
+              
+              <Link to="/profile">
+                <Button 
+                  variant={isActive('/profile') ? "default" : "ghost"} 
+                  size="icon" 
+                  className={isActive('/profile') ? "bg-dhun-purple hover:bg-dhun-purple/90" : ""}
+                >
+                  <User className="h-5 w-5" />
+                </Button>
+              </Link>
+            </>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -124,13 +136,15 @@ const Header: React.FC = () => {
 
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
-              <Avatar>
-                <AvatarImage src={currentUser?.avatar} />
-                <AvatarFallback className="bg-dhun-purple text-white">
-                  {currentUser?.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <Button variant="ghost" size="icon" onClick={logout}>
+              {currentUser && (
+                <Avatar>
+                  <AvatarImage src={currentUser.avatar} />
+                  <AvatarFallback className="bg-dhun-purple text-white">
+                    {currentUser.name ? currentUser.name.charAt(0) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>
             </div>
@@ -155,10 +169,14 @@ const Header: React.FC = () => {
                 <Link to="/discover" className="text-lg font-medium">Discover</Link>
                 <Link to="/mood" className="text-lg font-medium">Moods</Link>
                 {isAuthenticated && (
-                  <Button variant="outline" onClick={logout} className="flex items-center gap-2 mt-4">
-                    <LogOut size={16} />
-                    <span>Logout</span>
-                  </Button>
+                  <>
+                    <Link to="/profile" className="text-lg font-medium">Profile</Link>
+                    <Link to="/chat" className="text-lg font-medium">Chat</Link>
+                    <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2 mt-4">
+                      <LogOut size={16} />
+                      <span>Logout</span>
+                    </Button>
+                  </>
                 )}
               </div>
             </SheetContent>

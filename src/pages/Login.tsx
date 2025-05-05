@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 const Login: React.FC = () => {
-  const { login, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,15 +19,14 @@ const Login: React.FC = () => {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (isAuthenticated && !loginAttempted) {
+    if (isAuthenticated) {
       navigate('/');
     }
-  }, [isAuthenticated, navigate, loginAttempted]);
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoginAttempted(true);
     
     if (!email || !password) {
       setError('Please fill in all fields');
@@ -35,6 +34,7 @@ const Login: React.FC = () => {
     }
     
     try {
+      setLoginAttempted(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -44,7 +44,7 @@ const Login: React.FC = () => {
       
       toast({
         title: "Login Successful",
-        description: `Welcome back, ${data.user?.email}`,
+        description: `Welcome back!`,
       });
       
       navigate('/');
@@ -61,12 +61,36 @@ const Login: React.FC = () => {
   const handleDemoLogin = async () => {
     try {
       setLoginAttempted(true);
+      const demoEmail = 'demo@example.com';
+      const demoPassword = 'password';
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: 'demo@example.com',
-        password: 'password'
+        email: demoEmail,
+        password: demoPassword
       });
       
-      if (error) throw error;
+      if (error) {
+        // If login fails, try to create the demo account
+        const { data: signupData, error: signupError } = await supabase.auth.signUp({
+          email: demoEmail,
+          password: demoPassword,
+          options: {
+            data: {
+              name: 'Demo User'
+            }
+          }
+        });
+        
+        if (signupError) throw signupError;
+        
+        // Try logging in again
+        const { data: secondLoginData, error: secondLoginError } = await supabase.auth.signInWithPassword({
+          email: demoEmail,
+          password: demoPassword
+        });
+        
+        if (secondLoginError) throw secondLoginError;
+      }
       
       toast({
         title: "Demo Login Successful",
@@ -77,31 +101,25 @@ const Login: React.FC = () => {
     } catch (err: any) {
       setError('Demo login failed. Please try again.');
       
-      // Create demo user if it doesn't exist
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: 'demo@example.com',
-          password: 'password',
-          options: {
-            data: {
-              name: 'Demo User'
-            }
-          }
-        });
-        
-        if (error) throw error;
-        
-        // Try logging in again
-        await handleDemoLogin();
-      } catch (signupError: any) {
-        toast({
-          title: "Demo Login Failed",
-          description: "Could not create or login to demo account.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Demo Login Failed",
+        description: "Could not create or login to demo account.",
+        variant: "destructive",
+      });
     }
   };
+
+  // If we're loading or logged in, show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dhun-dark p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-dhun-purple mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dhun-dark p-4">
