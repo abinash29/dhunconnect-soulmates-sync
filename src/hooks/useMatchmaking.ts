@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { User, Chat, Message, Song } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -38,7 +37,10 @@ export const useMatchmaking = () => {
         },
         (payload) => {
           console.log('Active listener change:', payload);
-          updateActiveListenersCount(payload.new?.song_id);
+          // Make sure we have a valid payload with song_id before updating
+          if (payload.new && typeof payload.new === 'object' && 'song_id' in payload.new) {
+            updateActiveListenersCount(payload.new.song_id);
+          }
         }
       )
       .subscribe();

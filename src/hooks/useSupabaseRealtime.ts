@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Song } from '@/types';
@@ -27,8 +26,12 @@ export const useSupabaseRealtime = () => {
         },
         (payload) => {
           console.log('New match notification received:', payload);
-          setNewMatches(prev => [...prev, payload.new]);
-          fetchMatchDetails(payload.new.id, payload.new.user2_id, payload.new.song_id);
+          if (payload.new) {
+            setNewMatches(prev => [...prev, payload.new]);
+            if ('id' in payload.new && 'user2_id' in payload.new && 'song_id' in payload.new) {
+              fetchMatchDetails(payload.new.id, payload.new.user2_id, payload.new.song_id);
+            }
+          }
         }
       )
       .on(
@@ -41,8 +44,12 @@ export const useSupabaseRealtime = () => {
         },
         (payload) => {
           console.log('New match notification received:', payload);
-          setNewMatches(prev => [...prev, payload.new]);
-          fetchMatchDetails(payload.new.id, payload.new.user1_id, payload.new.song_id);
+          if (payload.new) {
+            setNewMatches(prev => [...prev, payload.new]);
+            if ('id' in payload.new && 'user1_id' in payload.new && 'song_id' in payload.new) {
+              fetchMatchDetails(payload.new.id, payload.new.user1_id, payload.new.song_id);
+            }
+          }
         }
       )
       .subscribe();
@@ -60,7 +67,9 @@ export const useSupabaseRealtime = () => {
         (payload) => {
           console.log('New message received:', payload);
           // We'll fetch the match details to check if the user is part of this match
-          checkIfMessageIsRelevant(payload.new);
+          if (payload.new) {
+            checkIfMessageIsRelevant(payload.new);
+          }
         }
       )
       .subscribe();
