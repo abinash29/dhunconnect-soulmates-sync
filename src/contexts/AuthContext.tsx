@@ -25,6 +25,9 @@ export const useAuth = () => {
   return context;
 };
 
+// Generate a unique session ID for this tab
+const tabSessionId = `auth_session_${Math.random().toString(36).substring(2, 15)}`;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -35,6 +38,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         console.log('Auth state changed:', event, newSession);
+        
+        // Store session locally for this tab instance only
+        if (newSession) {
+          sessionStorage.setItem(tabSessionId, JSON.stringify(newSession));
+        } else if (event === 'SIGNED_OUT') {
+          sessionStorage.removeItem(tabSessionId);
+        }
+        
         setSession(newSession);
         
         if (newSession?.user) {
@@ -72,29 +83,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Then check for an existing session
     const initializeAuth = async () => {
       try {
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-        console.log('Existing session:', existingSession);
-        
-        setSession(existingSession);
-        
-        if (existingSession?.user) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', existingSession.user.id)
-            .single();
-            
-          if (profileError) throw profileError;
+        // Check for session in this tab's sessionStorage first
+        const localSession = sessionStorage.getItem(tabSessionId);
+        if (localSession) {
+          const parsedSession = JSON.parse(localSession);
+          setSession(parsedSession);
           
-          if (profileData) {
-            const userData: User = {
-              id: profileData.id,
-              name: profileData.name || 'Unknown User',
-              email: profileData.email || existingSession.user.email || '',
-              avatar: profileData.avatar
-            };
+          // Get user profile
+          if (parsedSession?.user) {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', parsedSession.user.id)
+              .single();
+              
+            if (!profileError && profileData) {
+              const userData: User = {
+                id: profileData.id,
+                name: profileData.name || 'Unknown User',
+                email: profileData.email || parsedSession.user.email || '',
+                avatar: profileData.avatar
+              };
+              
+              setCurrentUser(userData);
+            }
+          }
+        } else {
+          // If no session in this tab, check with Supabase
+          const { data: { session: existingSession } } = await supabase.auth.getSession();
+          console.log('Existing session:', existingSession);
+          
+          if (existingSession) {
+            // Store in this tab's session storage
+            sessionStorage.setItem(tabSessionId, JSON.stringify(existingSession));
+          }
+          
+          setSession(existingSession);
+          
+          if (existingSession?.user) {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', existingSession.user.id)
+              .single();
+              
+            if (profileError) throw profileError;
             
-            setCurrentUser(userData);
+            if (profileData) {
+              const userData: User = {
+                id: profileData.id,
+                name: profileData.name || 'Unknown User',
+                email: profileData.email || existingSession.user.email || '',
+                avatar: profileData.avatar
+              };
+              
+              setCurrentUser(userData);
+            }
           }
         }
       } catch (error) {
@@ -191,6 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      sessionStorage.removeItem(tabSessionId);
       await supabase.auth.signOut();
       toast({
         title: "Logged out successfully",

@@ -171,10 +171,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Start match timer
     if (matchTimer) clearTimeout(matchTimer);
     
-    const matchDelay = 5000 + Math.random() * 5000;
+    // Only look for real matches, no simulated matching
     setMatchTimer(setTimeout(() => {
-      findMatch(song);
-    }, matchDelay));
+      if (currentUser) {
+        findMatch(song);
+      }
+    }, 5000));
   };
 
   const searchSongs = async (query: string) => {
