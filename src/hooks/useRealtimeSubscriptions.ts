@@ -21,6 +21,8 @@ export const useRealtimeSubscriptions = ({
   useEffect(() => {
     if (!currentUser) return;
     
+    console.log('Setting up real-time subscriptions for user:', currentUser.id);
+    
     // Subscribe to active listener changes
     const activeListenersChannel = supabase
       .channel('active_listeners_changes')
@@ -37,15 +39,24 @@ export const useRealtimeSubscriptions = ({
           if (payload.new && typeof payload.new === 'object' && 'song_id' in payload.new) {
             updateActiveListenersCount(payload.new.song_id);
             
-            // If a new active listener is detected for a song the current user is listening to
-            if (currentUser && payload.new.user_id !== currentUser.id && payload.eventType === 'INSERT') {
-              console.log('Potential match detected - checking same song');
-              checkForRealTimeMatch(payload.new.song_id, payload.new.user_id);
+            // Only process active listeners
+            if (payload.new.is_active) {
+              // If a new active listener is detected for a song the current user is listening to
+              if (currentUser && payload.new.user_id !== currentUser.id) {
+                console.log('Potential match detected with user:', payload.new.user_id);
+                console.log('For song:', payload.new.song_id);
+                // Wait a brief moment to ensure both database records are saved
+                setTimeout(() => {
+                  checkForRealTimeMatch(payload.new.song_id, payload.new.user_id);
+                }, 500);
+              }
             }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Active listeners subscription status:', status);
+      });
       
     // Subscribe to new matches
     const matchesChannel = supabase
@@ -70,13 +81,23 @@ export const useRealtimeSubscriptions = ({
                                   payload.new.user2_id : payload.new.user1_id;
               
               fetchMatchUserDetails(otherUserId, payload.new.id, payload.new.song_id);
+              
+              // Display a toast notification immediately 
+              toast({
+                title: "New Music Connection!",
+                description: `You've been matched with someone listening to the same song!`,
+                variant: "default",
+              });
             }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Matches subscription status:', status);
+      });
     
     return () => {
+      console.log('Cleaning up real-time subscriptions');
       supabase.removeChannel(activeListenersChannel);
       supabase.removeChannel(matchesChannel);
     };

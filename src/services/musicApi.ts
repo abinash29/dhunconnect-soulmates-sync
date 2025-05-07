@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Song } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -187,8 +186,10 @@ export const registerActiveListener = async (userId: string, songId: string): Pr
       .update({ is_active: false })
       .eq('user_id', userId);
     
+    console.log('Marked previous active listeners as inactive');
+    
     // Now create a new active listener record
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('active_listeners')
       .upsert({ 
         user_id: userId, 
@@ -203,7 +204,22 @@ export const registerActiveListener = async (userId: string, songId: string): Pr
     if (error) {
       console.error('Error registering active listener:', error);
     } else {
-      console.log(`Successfully registered user ${userId} as active listener for song ${songId}`);
+      console.log(`Successfully registered user ${userId} as active listener for song ${songId}`, data);
+      
+      // Verify the insertion worked by checking the database
+      const { data: verification, error: verificationError } = await supabase
+        .from('active_listeners')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('song_id', songId)
+        .eq('is_active', true)
+        .single();
+        
+      if (verificationError) {
+        console.error('Error verifying active listener registration:', verificationError);
+      } else {
+        console.log('Verified active listener registration:', verification);
+      }
     }
   } catch (error) {
     console.error('Error in registerActiveListener:', error);

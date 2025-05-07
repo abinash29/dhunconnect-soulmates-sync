@@ -13,21 +13,24 @@ export const useUserManagement = () => {
       if (prev.some(existingUser => existingUser.id === user.id)) {
         return prev;
       }
+      console.log('Registering connected user:', user.name);
       return [...prev, user];
     });
   };
   
   // Remove user when they disconnect
   const unregisterConnectedUser = (userId: string) => {
+    console.log('Unregistering user:', userId);
     setConnectedUsers(prev => prev.filter(user => user.id !== userId));
   };
   
-  // Mock function to simulate multiple connected users for testing
+  // Completely disabled mock users function
   const addMockConnectedUsers = () => {
-    console.log("Mock users disabled - using only real users");
+    // This function is completely disabled
+    console.log("Mock users are completely disabled - only real matching is available");
     toast({
-      title: "Mock Users Disabled",
-      description: "The app is now using only real user matching.",
+      title: "Real Matches Only",
+      description: "The app is using only real user matching for a better experience.",
     });
   };
 

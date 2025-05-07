@@ -25,6 +25,8 @@ export const useMatchLogic = ({
   // Function to fetch user details for a match
   const fetchMatchUserDetails = async (userId: string, matchId: string, songId: string) => {
     try {
+      console.log(`Fetching match details for user ${userId} on match ${matchId} for song ${songId}`);
+      
       // Get user profile data
       const { data: userData, error: userError } = await supabase
         .from('profiles')
@@ -32,7 +34,10 @@ export const useMatchLogic = ({
         .eq('id', userId)
         .single();
       
-      if (userError) throw userError;
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        throw userError;
+      }
       
       // Get song details
       const { data: songData, error: songError } = await supabase
@@ -41,7 +46,10 @@ export const useMatchLogic = ({
         .eq('id', songId)
         .single();
         
-      if (songError) throw songError;
+      if (songError) {
+        console.error('Error fetching song data:', songError);
+        throw songError;
+      }
       
       const matchUser: User = {
         id: userData.id,
@@ -49,6 +57,8 @@ export const useMatchLogic = ({
         email: userData.email || '',
         avatar: userData.avatar
       };
+      
+      console.log('Creating real match with user:', matchUser);
       
       createRealMatch(
         {
@@ -75,6 +85,8 @@ export const useMatchLogic = ({
     if (!currentUser || !songId) return;
     
     try {
+      console.log(`Checking for real-time match between user ${currentUser.id} and ${otherUserId} on song ${songId}`);
+      
       // Check if current user is listening to this song
       const { data: currentUserListening, error: listeningError } = await supabase
         .from('active_listeners')
@@ -84,11 +96,14 @@ export const useMatchLogic = ({
         .eq('is_active', true)
         .maybeSingle();
       
-      if (listeningError) throw listeningError;
+      if (listeningError) {
+        console.error('Error checking if current user is listening:', listeningError);
+        throw listeningError;
+      }
       
       // If current user is listening to the same song as the other user
       if (currentUserListening) {
-        console.log('Match confirmed! Both users listening to the same song');
+        console.log('Match confirmed! Both users listening to the same song:', songId);
         
         // Check if these users are already matched
         const { data: existingMatch, error: matchError } = await supabase
@@ -98,16 +113,30 @@ export const useMatchLogic = ({
           .eq('song_id', songId)
           .maybeSingle();
         
-        if (matchError) throw matchError;
+        if (matchError) {
+          console.error('Error checking for existing match:', matchError);
+          throw matchError;
+        }
         
         if (!existingMatch) {
-          console.log('Creating new match between users');
+          console.log('Creating new match between users', currentUser.id, 'and', otherUserId);
           // Create a new match since one doesn't exist
-          await createMatch(currentUser.id, otherUserId, songId);
-          // Note: The match creation will trigger the realtime subscription
+          const matchId = await createMatch(currentUser.id, otherUserId, songId);
+          
+          if (matchId) {
+            console.log('Match created successfully with ID:', matchId);
+            toast({
+              title: "New Music Match!",
+              description: "Someone is listening to the same song as you!",
+            });
+          } else {
+            console.error('Failed to create match');
+          }
         } else {
           console.log('Match already exists between these users for this song');
         }
+      } else {
+        console.log('Current user is not actively listening to this song');
       }
     } catch (error) {
       console.error('Error checking for real-time match:', error);
@@ -166,6 +195,8 @@ export const useMatchLogic = ({
   
   // Create a match with a real user
   const createRealMatch = (song: Song, matchUser: User, matchId?: string) => {
+    console.log('Creating real match UI for:', matchUser.name, 'on song:', song.title);
+    
     setCurrentMatch(matchUser);
     
     // Create a more personalized opening message with the real user
@@ -201,6 +232,7 @@ export const useMatchLogic = ({
     toast({
       title: "You found a music soulmate!",
       description: `${matchUser.name} is also listening to ${song.title}`,
+      variant: "default",
     });
     
     // If we have a real match ID, save the first message
