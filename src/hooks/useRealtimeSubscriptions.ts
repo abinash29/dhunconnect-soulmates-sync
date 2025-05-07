@@ -13,6 +13,14 @@ type ActiveListenerPayload = {
   started_at: string;
 };
 
+type MatchPayload = {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  song_id: string;
+  created_at: string;
+};
+
 type RealtimeSubscriptionProps = {
   currentUser: User | null;
   setActiveListeners: (callback: (prev: Record<string, number>) => Record<string, number>) => void;
@@ -42,7 +50,7 @@ export const useRealtimeSubscriptions = ({
           schema: 'public',
           table: 'active_listeners',
         },
-        (payload: RealtimePostgresChangesPayload<'active_listeners', ActiveListenerPayload>) => {
+        (payload: RealtimePostgresChangesPayload<ActiveListenerPayload>) => {
           console.log('Active listener change detected:', payload);
           // Check for new active listeners on songs
           if (payload.new && typeof payload.new === 'object' && 'song_id' in payload.new) {
@@ -77,13 +85,7 @@ export const useRealtimeSubscriptions = ({
           schema: 'public',
           table: 'matches',
         },
-        (payload: RealtimePostgresChangesPayload<'matches', {
-          id: string;
-          user1_id: string;
-          user2_id: string;
-          song_id: string;
-          created_at: string;
-        }>) => {
+        (payload: RealtimePostgresChangesPayload<MatchPayload>) => {
           console.log('New match created:', payload);
           if (payload.new && currentUser) {
             // Check if current user is part of this match
