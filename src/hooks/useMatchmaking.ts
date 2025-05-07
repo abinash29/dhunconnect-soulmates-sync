@@ -23,11 +23,12 @@ export const useMatchmaking = () => {
   const [previousMatches, setPreviousMatches] = useState<string[]>([]);
   const [connectedUsers, setConnectedUsers] = useState<User[]>([]);
   
-  // Realtime subscription for active listeners
+  // Realtime subscription for active listeners and matches
   useEffect(() => {
     if (!currentUser) return;
     
-    const channel = supabase
+    // Subscribe to active listener changes
+    const activeListenersChannel = supabase
       .channel('active_listeners_changes')
       .on(
         'postgres_changes',
@@ -37,19 +38,147 @@ export const useMatchmaking = () => {
           table: 'active_listeners',
         },
         (payload) => {
-          console.log('Active listener change:', payload);
-          // Make sure we have a valid payload with song_id before updating
+          console.log('Active listener change detected:', payload);
+          // Check for new active listeners on songs
           if (payload.new && typeof payload.new === 'object' && 'song_id' in payload.new) {
             updateActiveListenersCount(payload.new.song_id);
+            
+            // If a new active listener is detected for a song the current user is listening to
+            if (currentUser && payload.new.user_id !== currentUser.id && payload.eventType === 'INSERT') {
+              console.log('Potential match detected - checking same song');
+              checkForRealTimeMatch(payload.new.song_id, payload.new.user_id);
+            }
+          }
+        }
+      )
+      .subscribe();
+      
+    // Subscribe to new matches
+    const matchesChannel = supabase
+      .channel('matches_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'matches',
+        },
+        (payload) => {
+          console.log('New match created:', payload);
+          if (payload.new && currentUser) {
+            // Check if current user is part of this match
+            const isUserInMatch = payload.new.user1_id === currentUser.id || 
+                                  payload.new.user2_id === currentUser.id;
+            
+            if (isUserInMatch) {
+              console.log('Current user is part of new match, fetching details');
+              const otherUserId = payload.new.user1_id === currentUser.id ? 
+                                  payload.new.user2_id : payload.new.user1_id;
+              
+              fetchMatchUserDetails(otherUserId, payload.new.id, payload.new.song_id);
+            }
           }
         }
       )
       .subscribe();
     
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(activeListenersChannel);
+      supabase.removeChannel(matchesChannel);
     };
   }, [currentUser]);
+  
+  // Function to fetch user details for a match
+  const fetchMatchUserDetails = async (userId: string, matchId: string, songId: string) => {
+    try {
+      // Get user profile data
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (userError) throw userError;
+      
+      // Get song details
+      const { data: songData, error: songError } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', songId)
+        .single();
+        
+      if (songError) throw songError;
+      
+      const matchUser: User = {
+        id: userData.id,
+        name: userData.name || 'Unknown User',
+        email: userData.email || '',
+        avatar: userData.avatar
+      };
+      
+      simulateRealMatch(
+        {
+          id: songData.id,
+          title: songData.title,
+          artist: songData.artist,
+          albumArt: songData.album_art,
+          audioUrl: songData.audio_url,
+          duration: songData.duration,
+          genre: songData.genre || '',
+          language: songData.language as 'hindi' | 'english'
+        }, 
+        matchUser, 
+        matchId
+      );
+      
+    } catch (error) {
+      console.error('Error fetching match details:', error);
+    }
+  };
+  
+  // Check for real-time match when another user starts listening to the same song
+  const checkForRealTimeMatch = async (songId: string, otherUserId: string) => {
+    if (!currentUser || !songId) return;
+    
+    try {
+      // Check if current user is listening to this song
+      const { data: currentUserListening, error: listeningError } = await supabase
+        .from('active_listeners')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .eq('song_id', songId)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (listeningError) throw listeningError;
+      
+      // If current user is listening to the same song as the other user
+      if (currentUserListening) {
+        console.log('Match confirmed! Both users listening to the same song');
+        
+        // Check if these users are already matched
+        const { data: existingMatch, error: matchError } = await supabase
+          .from('matches')
+          .select('id')
+          .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${otherUserId}),and(user1_id.eq.${otherUserId},user2_id.eq.${currentUser.id})`)
+          .eq('song_id', songId)
+          .maybeSingle();
+        
+        if (matchError) throw matchError;
+        
+        if (!existingMatch) {
+          console.log('Creating new match between users');
+          // Create a new match since one doesn't exist
+          await createMatch(currentUser.id, otherUserId, songId);
+          // Note: The match creation will trigger the realtime subscription above
+        } else {
+          console.log('Match already exists between these users for this song');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for real-time match:', error);
+    }
+  };
   
   // Update active listeners count for a song
   const updateActiveListenersCount = async (songId: string) => {
@@ -64,6 +193,8 @@ export const useMatchmaking = () => {
       
       if (error) throw error;
       
+      console.log(`Updated active listener count for song ${songId}: ${count}`);
+      
       setActiveListeners(prev => ({
         ...prev,
         [songId]: count || 0
@@ -73,63 +204,7 @@ export const useMatchmaking = () => {
     }
   };
   
-  // Function to force a match (for testing)
-  const forceMatch = async (song: Song) => {
-    console.log("Force matching for song:", song.title);
-    
-    if (!currentUser) {
-      toast({
-        title: "Not Logged In",
-        description: "Please login to find matches.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Register as active listener for this song
-    await registerActiveListener(currentUser.id, song.id);
-    
-    // Check if we have connected users for a real match
-    if (connectedUsers.length > 0) {
-      // Pick a random connected user
-      const randomUser = connectedUsers[Math.floor(Math.random() * connectedUsers.length)];
-      simulateRealMatch(song, randomUser);
-      toast({
-        title: "Match Found!",
-        description: `You've matched with ${randomUser.name} who is listening to the same song.`,
-      });
-    } else {
-      // Find real matches on Supabase
-      const potentialMatches = await findPotentialMatches(currentUser.id, song.id);
-      
-      if (potentialMatches && potentialMatches.length > 0) {
-        // Get the first match
-        const match = potentialMatches[0];
-        
-        // Create a real user
-        const matchUser: User = {
-          id: match.user_id,
-          name: match.profiles?.name || 'Unknown User',
-          email: match.profiles?.email || '',
-          avatar: match.profiles?.avatar
-        };
-        
-        // Create the match in the database
-        const matchId = await createMatch(currentUser.id, matchUser.id, song.id);
-        
-        if (matchId) {
-          simulateRealMatch(song, matchUser, matchId);
-        }
-      } else {
-        toast({
-          title: "No Matches Found",
-          description: "No one is currently listening to the same song. Try again later!",
-        });
-      }
-    }
-  };
-  
-  // Find a match for the current song
+  // Find a match for the current song - this runs when the current user starts playing
   const findMatch = async (song: Song) => {
     console.log("Finding match for song:", song.title);
     
@@ -137,15 +212,17 @@ export const useMatchmaking = () => {
     
     // Register as active listener for this song
     await registerActiveListener(currentUser.id, song.id);
+    console.log(`Registered user ${currentUser.id} as active listener for song ${song.id}`);
     
-    // Look for real matches
+    // Look for real matches - other users currently listening to the same song
     const potentialMatches = await findPotentialMatches(currentUser.id, song.id);
+    console.log('Potential matches found:', potentialMatches);
     
     if (potentialMatches && potentialMatches.length > 0) {
       // Get the first match
       const match = potentialMatches[0];
       
-      // Create a real user
+      // Create a user object from the match
       const matchUser: User = {
         id: match.user_id,
         name: match.profiles?.name || 'Unknown User',
@@ -153,13 +230,15 @@ export const useMatchmaking = () => {
         avatar: match.profiles?.avatar
       };
       
+      console.log('Creating match with user:', matchUser.name);
+      
       // Create the match in the database
       const matchId = await createMatch(currentUser.id, matchUser.id, song.id);
       
       if (matchId) {
         simulateRealMatch(song, matchUser, matchId);
       } else {
-        console.log("No match found at this time");
+        console.log("Failed to create match");
         toast({
           title: "Looking for matches",
           description: "We'll notify you when someone else starts listening to this song",
@@ -173,6 +252,26 @@ export const useMatchmaking = () => {
         variant: "default",
       });
     }
+  };
+  
+  // Function to force a match (for testing)
+  const forceMatch = async (song: Song) => {
+    console.log("Force matching disabled - using only real matching");
+    
+    if (!currentUser) {
+      toast({
+        title: "Not Logged In",
+        description: "Please login to find matches.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Register as active listener for this song
+    await registerActiveListener(currentUser.id, song.id);
+    
+    // Instead of creating a fake match, just check for real matches
+    findMatch(song);
   };
   
   // Simulate a match with a real user
@@ -239,31 +338,10 @@ export const useMatchmaking = () => {
   
   // Mock function to simulate multiple connected users for testing
   const addMockConnectedUsers = () => {
-    const mockUsers = [
-      {
-        id: 'user-1',
-        name: 'Alice',
-        email: 'alice@example.com',
-        avatar: `https://api.dicebear.com/7.x/micah/svg?seed=Alice`
-      },
-      {
-        id: 'user-2',
-        name: 'Bob',
-        email: 'bob@example.com',
-        avatar: `https://api.dicebear.com/7.x/micah/svg?seed=Bob`
-      },
-      {
-        id: 'user-3',
-        name: 'Charlie',
-        email: 'charlie@example.com',
-        avatar: `https://api.dicebear.com/7.x/micah/svg?seed=Charlie`
-      }
-    ];
-    
-    setConnectedUsers(mockUsers);
+    console.log("Mock users disabled - using only real users");
     toast({
-      title: "Mock Users Connected",
-      description: `Added ${mockUsers.length} mock users for testing.`,
+      title: "Mock Users Disabled",
+      description: "The app is now using only real user matching.",
     });
   };
   

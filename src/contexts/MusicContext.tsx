@@ -96,7 +96,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Register the current authenticated user when they log in
   useEffect(() => {
     if (currentUser) {
+      console.log('Registering connected user:', currentUser);
       registerConnectedUser(currentUser);
+      
+      // Set up a unique session ID for this browser tab
+      const sessionId = localStorage.getItem('sessionId') || `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem('sessionId', sessionId);
+      console.log('Browser tab session ID:', sessionId);
     }
     
     // Clean up when user logs out or component unmounts
@@ -104,6 +110,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (currentUser) {
         // Update active listener status to inactive
         unregisterActiveListener(currentUser.id);
+        console.log('Unregistered active listener for user:', currentUser.id);
       }
     };
   }, [currentUser]);
@@ -158,6 +165,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     // Update active listeners for this song
     if (currentUser) {
+      console.log(`User ${currentUser.name} is now listening to ${song.title}`);
       registerActiveListener(currentUser.id, song.id);
     }
     
@@ -174,9 +182,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Only look for real matches, no simulated matching
     setMatchTimer(setTimeout(() => {
       if (currentUser) {
+        console.log("Starting matchmaking process for song:", song.title);
         findMatch(song);
       }
-    }, 5000));
+    }, 3000));
   };
 
   const searchSongs = async (query: string) => {
@@ -222,7 +231,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       return;
     }
-    forceMatch(song);
+    console.log("Testing real matchmaking for song:", song.title);
+    findMatch(song);
   };
 
   const value = {

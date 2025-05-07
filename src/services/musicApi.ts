@@ -174,11 +174,13 @@ export const searchTracks = async (query: string, limit = 10): Promise<Song[]> =
   }
 };
 
-// New functions for active listener management and matchmaking
+// Functions for active listener management and matchmaking
 export const registerActiveListener = async (userId: string, songId: string): Promise<void> => {
   if (!userId || !songId) return;
   
   try {
+    console.log(`Registering user ${userId} as active listener for song ${songId}`);
+    
     // First, update any existing active listener records for this user to inactive
     await supabase
       .from('active_listeners')
@@ -200,6 +202,8 @@ export const registerActiveListener = async (userId: string, songId: string): Pr
     
     if (error) {
       console.error('Error registering active listener:', error);
+    } else {
+      console.log(`Successfully registered user ${userId} as active listener for song ${songId}`);
     }
   } catch (error) {
     console.error('Error in registerActiveListener:', error);
@@ -210,6 +214,8 @@ export const unregisterActiveListener = async (userId: string): Promise<void> =>
   if (!userId) return;
   
   try {
+    console.log(`Marking user ${userId} as inactive listener`);
+    
     // Mark all active listener records for this user as inactive
     const { error } = await supabase
       .from('active_listeners')
@@ -218,6 +224,8 @@ export const unregisterActiveListener = async (userId: string): Promise<void> =>
     
     if (error) {
       console.error('Error unregistering active listener:', error);
+    } else {
+      console.log(`Successfully marked user ${userId} as inactive listener`);
     }
   } catch (error) {
     console.error('Error in unregisterActiveListener:', error);
@@ -228,6 +236,8 @@ export const findPotentialMatches = async (userId: string, songId: string): Prom
   if (!userId || !songId) return [];
   
   try {
+    console.log(`Finding potential matches for user ${userId} on song ${songId}`);
+    
     // Find other active listeners for the same song
     const { data, error } = await supabase
       .from('active_listeners')
@@ -246,6 +256,7 @@ export const findPotentialMatches = async (userId: string, songId: string): Prom
       return [];
     }
     
+    console.log(`Found ${data?.length || 0} potential matches`);
     return data || [];
   } catch (error) {
     console.error('Error in findPotentialMatches:', error);
@@ -257,6 +268,26 @@ export const createMatch = async (user1Id: string, user2Id: string, songId: stri
   if (!user1Id || !user2Id || !songId) return null;
   
   try {
+    console.log(`Creating match between users ${user1Id} and ${user2Id} for song ${songId}`);
+    
+    // Check for existing match first
+    const { data: existingMatch, error: checkError } = await supabase
+      .from('matches')
+      .select('id')
+      .or(`and(user1_id.eq.${user1Id},user2_id.eq.${user2Id}),and(user1_id.eq.${user2Id},user2_id.eq.${user1Id})`)
+      .eq('song_id', songId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('Error checking for existing match:', checkError);
+    }
+    
+    // If match already exists, return its ID
+    if (existingMatch) {
+      console.log(`Match already exists with ID: ${existingMatch.id}`);
+      return existingMatch.id;
+    }
+    
     // Create a new match
     const { data, error } = await supabase
       .from('matches')
@@ -273,6 +304,7 @@ export const createMatch = async (user1Id: string, user2Id: string, songId: stri
       return null;
     }
     
+    console.log(`Successfully created match with ID: ${data?.id}`);
     return data?.id || null;
   } catch (error) {
     console.error('Error in createMatch:', error);
@@ -284,6 +316,8 @@ export const sendChatMessage = async (matchId: string, senderId: string, content
   if (!matchId || !senderId || !content.trim()) return false;
   
   try {
+    console.log(`Sending chat message in match ${matchId} from ${senderId}`);
+    
     const { error } = await supabase
       .from('chat_messages')
       .insert({ 
@@ -297,6 +331,7 @@ export const sendChatMessage = async (matchId: string, senderId: string, content
       return false;
     }
     
+    console.log('Chat message sent successfully');
     return true;
   } catch (error) {
     console.error('Error in sendChatMessage:', error);
@@ -308,6 +343,8 @@ export const getChatMessages = async (matchId: string): Promise<any[]> => {
   if (!matchId) return [];
   
   try {
+    console.log(`Fetching chat messages for match ${matchId}`);
+    
     const { data, error } = await supabase
       .from('chat_messages')
       .select(`
@@ -324,6 +361,7 @@ export const getChatMessages = async (matchId: string): Promise<any[]> => {
       return [];
     }
     
+    console.log(`Fetched ${data?.length || 0} messages for match ${matchId}`);
     return data || [];
   } catch (error) {
     console.error('Error in getChatMessages:', error);
@@ -346,6 +384,7 @@ export const getActiveListenerCount = async (songId: string): Promise<number> =>
       return 0;
     }
     
+    console.log(`Song ${songId} has ${count || 0} active listeners`);
     return count || 0;
   } catch (error) {
     console.error('Error in getActiveListenerCount:', error);
