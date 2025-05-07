@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
