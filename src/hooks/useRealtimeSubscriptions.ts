@@ -3,6 +3,15 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
 import { toast } from '@/hooks/use-toast';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+
+type ActiveListenerPayload = {
+  id: string;
+  user_id: string;
+  song_id: string;
+  is_active: boolean;
+  started_at: string;
+};
 
 type RealtimeSubscriptionProps = {
   currentUser: User | null;
@@ -33,7 +42,7 @@ export const useRealtimeSubscriptions = ({
           schema: 'public',
           table: 'active_listeners',
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<'active_listeners', ActiveListenerPayload>) => {
           console.log('Active listener change detected:', payload);
           // Check for new active listeners on songs
           if (payload.new && typeof payload.new === 'object' && 'song_id' in payload.new) {
@@ -68,7 +77,13 @@ export const useRealtimeSubscriptions = ({
           schema: 'public',
           table: 'matches',
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<'matches', {
+          id: string;
+          user1_id: string;
+          user2_id: string;
+          song_id: string;
+          created_at: string;
+        }>) => {
           console.log('New match created:', payload);
           if (payload.new && currentUser) {
             // Check if current user is part of this match
