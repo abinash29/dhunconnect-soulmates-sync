@@ -53,13 +53,13 @@ export const useRealtimeSubscriptions = ({
         (payload: RealtimePostgresChangesPayload<ActiveListenerPayload>) => {
           console.log('Active listener change detected:', payload);
           // Check for new active listeners on songs
-          if (payload.new && typeof payload.new === 'object' && 'song_id' in payload.new) {
+          if (payload.new && 'song_id' in payload.new) {
             updateActiveListenersCount(payload.new.song_id);
             
             // Only process active listeners
             if (payload.new.is_active) {
               // If a new active listener is detected for a song the current user is listening to
-              if (currentUser && payload.new.user_id !== currentUser.id) {
+              if (currentUser && 'user_id' in payload.new && payload.new.user_id !== currentUser.id) {
                 console.log('Potential match detected with user:', payload.new.user_id);
                 console.log('For song:', payload.new.song_id);
                 // Wait a brief moment to ensure both database records are saved
@@ -87,7 +87,7 @@ export const useRealtimeSubscriptions = ({
         },
         (payload: RealtimePostgresChangesPayload<MatchPayload>) => {
           console.log('New match created:', payload);
-          if (payload.new && currentUser) {
+          if (payload.new && currentUser && 'user1_id' in payload.new && 'user2_id' in payload.new) {
             // Check if current user is part of this match
             const isUserInMatch = payload.new.user1_id === currentUser.id || 
                                   payload.new.user2_id === currentUser.id;
@@ -97,14 +97,16 @@ export const useRealtimeSubscriptions = ({
               const otherUserId = payload.new.user1_id === currentUser.id ? 
                                   payload.new.user2_id : payload.new.user1_id;
               
-              fetchMatchUserDetails(otherUserId, payload.new.id, payload.new.song_id);
-              
-              // Display a toast notification immediately 
-              toast({
-                title: "New Music Connection!",
-                description: `You've been matched with someone listening to the same song!`,
-                variant: "default",
-              });
+              if ('id' in payload.new && 'song_id' in payload.new) {
+                fetchMatchUserDetails(otherUserId, payload.new.id, payload.new.song_id);
+                
+                // Display a toast notification immediately 
+                toast({
+                  title: "New Music Connection!",
+                  description: `You've been matched with someone listening to the same song!`,
+                  variant: "default",
+                });
+              }
             }
           }
         }
