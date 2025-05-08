@@ -52,20 +52,24 @@ export const useRealtimeSubscriptions = ({
         },
         (payload: RealtimePostgresChangesPayload<ActiveListenerPayload>) => {
           console.log('Active listener change detected:', payload);
-          // Check for new active listeners on songs
-          if (payload.new && 'song_id' in payload.new) {
-            updateActiveListenersCount(payload.new.song_id);
-            
-            // Only process active listeners
-            if (payload.new.is_active) {
-              // If a new active listener is detected for a song the current user is listening to
-              if (currentUser && 'user_id' in payload.new && payload.new.user_id !== currentUser.id) {
-                console.log('Potential match detected with user:', payload.new.user_id);
-                console.log('For song:', payload.new.song_id);
-                // Wait a brief moment to ensure both database records are saved
-                setTimeout(() => {
-                  checkForRealTimeMatch(payload.new.song_id, payload.new.user_id);
-                }, 500);
+          
+          // Properly narrow and type check the payload.new object
+          if (payload.new && typeof payload.new === 'object') {
+            // Type guard to ensure song_id exists
+            if ('song_id' in payload.new) {
+              updateActiveListenersCount(payload.new.song_id);
+              
+              // Only process active listeners
+              if ('is_active' in payload.new && payload.new.is_active) {
+                // If a new active listener is detected for a song the current user is listening to
+                if (currentUser && 'user_id' in payload.new && payload.new.user_id !== currentUser.id) {
+                  console.log('Potential match detected with user:', payload.new.user_id);
+                  console.log('For song:', payload.new.song_id);
+                  // Wait a brief moment to ensure both database records are saved
+                  setTimeout(() => {
+                    checkForRealTimeMatch(payload.new.song_id, payload.new.user_id);
+                  }, 500);
+                }
               }
             }
           }
@@ -87,25 +91,31 @@ export const useRealtimeSubscriptions = ({
         },
         (payload: RealtimePostgresChangesPayload<MatchPayload>) => {
           console.log('New match created:', payload);
-          if (payload.new && currentUser && 'user1_id' in payload.new && 'user2_id' in payload.new) {
-            // Check if current user is part of this match
-            const isUserInMatch = payload.new.user1_id === currentUser.id || 
-                                  payload.new.user2_id === currentUser.id;
-            
-            if (isUserInMatch) {
-              console.log('Current user is part of new match, fetching details');
-              const otherUserId = payload.new.user1_id === currentUser.id ? 
-                                  payload.new.user2_id : payload.new.user1_id;
+          
+          // Properly narrow and type check the payload.new object
+          if (payload.new && currentUser && typeof payload.new === 'object') {
+            // Type guard to ensure user ids exist
+            if ('user1_id' in payload.new && 'user2_id' in payload.new) {
+              // Check if current user is part of this match
+              const isUserInMatch = payload.new.user1_id === currentUser.id || 
+                                    payload.new.user2_id === currentUser.id;
               
-              if ('id' in payload.new && 'song_id' in payload.new) {
-                fetchMatchUserDetails(otherUserId, payload.new.id, payload.new.song_id);
+              if (isUserInMatch) {
+                console.log('Current user is part of new match, fetching details');
+                const otherUserId = payload.new.user1_id === currentUser.id ? 
+                                    payload.new.user2_id : payload.new.user1_id;
                 
-                // Display a toast notification immediately 
-                toast({
-                  title: "New Music Connection!",
-                  description: `You've been matched with someone listening to the same song!`,
-                  variant: "default",
-                });
+                // Ensure id and song_id exist
+                if ('id' in payload.new && 'song_id' in payload.new) {
+                  fetchMatchUserDetails(otherUserId, payload.new.id, payload.new.song_id);
+                  
+                  // Display a toast notification immediately 
+                  toast({
+                    title: "New Music Connection!",
+                    description: `You've been matched with someone listening to the same song!`,
+                    variant: "default",
+                  });
+                }
               }
             }
           }
