@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
@@ -93,7 +94,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Use the Supabase realtime hook with proper props
   const supabaseRealtime = useSupabaseRealtime({
     setChatOpen: (isOpen: boolean) => {
-      if (toggleChat && isOpen) {
+      if (isOpen && toggleChat) {
+        console.log("Opening chat from realtime notification");
         toggleChat();
       }
     },
@@ -198,7 +200,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Start match timer
     if (matchTimer) clearTimeout(matchTimer);
     
-    // Only look for real matches, no simulated matching
+    // Look for real matches after a short delay
     setMatchTimer(setTimeout(() => {
       if (currentUser) {
         console.log("Starting matchmaking process for song:", song.title);

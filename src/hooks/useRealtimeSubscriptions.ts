@@ -78,7 +78,7 @@ export const useRealtimeSubscriptions = ({
         console.log('Active listeners subscription status:', status);
       });
       
-    // Subscribe to new matches
+    // Subscribe to new matches - IMPROVED match detection for both users
     const matchesChannel = supabase
       .channel('matches_changes')
       .on(

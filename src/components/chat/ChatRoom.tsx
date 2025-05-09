@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +16,14 @@ const ChatRoom: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
+
+  // Force chat to open if we have a match and current chat
+  useEffect(() => {
+    if (currentMatch && currentChat && !chatOpen) {
+      console.log("Auto-opening chat due to new match");
+      toggleChat();
+    }
+  }, [currentMatch, currentChat, chatOpen, toggleChat]);
 
   // Fetch messages for the current chat
   useEffect(() => {
@@ -47,6 +54,12 @@ const ChatRoom: React.FC = () => {
               };
               
               setChatMessages(prev => [...prev, newMessage]);
+              
+              // If we receive a message and the chat isn't open, open it
+              if (!chatOpen) {
+                console.log("Opening chat due to new message");
+                toggleChat();
+              }
             }
           }
         )
@@ -56,7 +69,7 @@ const ChatRoom: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [currentChat, currentUser]);
+  }, [currentChat, currentUser, chatOpen, toggleChat]);
 
   // Fetch initial messages for the chat
   const fetchMessages = async (matchId: string) => {

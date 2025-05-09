@@ -60,20 +60,18 @@ export const useMatchLogic = ({
       
       console.log('Creating real match with user:', matchUser);
       
-      createRealMatch(
-        {
-          id: songData.id,
-          title: songData.title,
-          artist: songData.artist,
-          albumArt: songData.album_art,
-          audioUrl: songData.audio_url,
-          duration: songData.duration,
-          genre: songData.genre || '',
-          language: songData.language as 'hindi' | 'english'
-        }, 
-        matchUser, 
-        matchId
-      );
+      const song: Song = {
+        id: songData.id,
+        title: songData.title,
+        artist: songData.artist,
+        albumArt: songData.album_art,
+        audioUrl: songData.audio_url,
+        duration: songData.duration,
+        genre: songData.genre || '',
+        language: songData.language as 'hindi' | 'english'
+      };
+      
+      createRealMatch(song, matchUser, matchId);
       
       // Show a toast notification about the match
       toast({
@@ -142,6 +140,7 @@ export const useMatchLogic = ({
             toast({
               title: "New Music Match!",
               description: "Someone is listening to the same song as you!",
+              variant: "default",
             });
           } else {
             console.error('Failed to create match');
@@ -243,7 +242,9 @@ export const useMatchLogic = ({
     };
     
     setCurrentChat(newChat);
-    // Automatically open the chat when a match is found
+    
+    // Automatically open the chat when a match is found - CRITICAL!
+    console.log("Automatically opening chat window for match");
     setChatOpen(true);
     
     toast({
