@@ -7,6 +7,7 @@ import { useUserManagement } from './useUserManagement';
 import { useMessageHandling } from './useMessageHandling';
 import { useMatchLogic } from './useMatchLogic';
 import { useRealtimeSubscriptions } from './useRealtimeSubscriptions';
+import { useSupabaseRealtime } from './useSupabaseRealtime';
 
 export const useMatchmaking = () => {
   const { currentUser } = useAuth();
@@ -15,7 +16,7 @@ export const useMatchmaking = () => {
   const [activeListeners, setActiveListeners] = useState<Record<string, number>>({});
   const [previousMatches, setPreviousMatches] = useState<string[]>([]);
   
-  // Import functionality from our new hooks
+  // Import functionality from our hooks
   const {
     connectedUsers,
     registerConnectedUser,
@@ -48,6 +49,13 @@ export const useMatchmaking = () => {
     currentUser,
     setActiveListeners,
     checkForRealTimeMatch,
+    fetchMatchUserDetails
+  });
+  
+  // Set up Supabase realtime for enhanced chat functionality
+  const supabaseRealtime = useSupabaseRealtime({
+    setChatOpen,
+    setCurrentChat,
     fetchMatchUserDetails
   });
   

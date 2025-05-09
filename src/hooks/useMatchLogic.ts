@@ -125,6 +125,9 @@ export const useMatchLogic = ({
           
           if (matchId) {
             console.log('Match created successfully with ID:', matchId);
+            // We will fetch the other user's details to open the chat automatically
+            await fetchMatchUserDetails(otherUserId, matchId, songId);
+            
             toast({
               title: "New Music Match!",
               description: "Someone is listening to the same song as you!",
@@ -134,6 +137,8 @@ export const useMatchLogic = ({
           }
         } else {
           console.log('Match already exists between these users for this song');
+          // Even if match exists, we should still open the chat
+          await fetchMatchUserDetails(otherUserId, existingMatch.id, songId);
         }
       } else {
         console.log('Current user is not actively listening to this song');
@@ -227,6 +232,7 @@ export const useMatchLogic = ({
     };
     
     setCurrentChat(newChat);
+    // Automatically open the chat when a match is found
     setChatOpen(true);
     
     toast({

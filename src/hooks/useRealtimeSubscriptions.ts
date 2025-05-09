@@ -54,9 +54,9 @@ export const useRealtimeSubscriptions = ({
         (payload: RealtimePostgresChangesPayload<ActiveListenerPayload>) => {
           console.log('Active listener change detected:', payload);
           
-          // Properly narrow the type with type checking
-          if (payload.new && typeof payload.new === 'object') {
-            const newData = payload.new as ActiveListenerPayload;
+          // Use proper type casting and property checks
+          const newData = payload.new as ActiveListenerPayload;
+          if (newData && 'song_id' in newData && 'user_id' in newData) {
             updateActiveListenersCount(newData.song_id);
             
             // Only process active listeners
@@ -91,10 +91,9 @@ export const useRealtimeSubscriptions = ({
         (payload: RealtimePostgresChangesPayload<MatchPayload>) => {
           console.log('New match created:', payload);
           
-          // Properly narrow the type with type checking
-          if (payload.new && currentUser && typeof payload.new === 'object') {
-            const newMatch = payload.new as MatchPayload;
-            
+          // Use proper type casting and property checks
+          const newMatch = payload.new as MatchPayload;
+          if (newMatch && currentUser && 'user1_id' in newMatch && 'user2_id' in newMatch) {
             // Check if current user is part of this match
             const isUserInMatch = newMatch.user1_id === currentUser.id || 
                                 newMatch.user2_id === currentUser.id;
@@ -104,6 +103,7 @@ export const useRealtimeSubscriptions = ({
               const otherUserId = newMatch.user1_id === currentUser.id ? 
                                 newMatch.user2_id : newMatch.user1_id;
               
+              // Pass match ID and song ID for creating the chat
               fetchMatchUserDetails(otherUserId, newMatch.id, newMatch.song_id);
               
               // Display a toast notification immediately 

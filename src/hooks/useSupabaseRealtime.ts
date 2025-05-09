@@ -1,10 +1,21 @@
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Song } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
-export const useSupabaseRealtime = () => {
+type UseSupabaseRealtimeProps = {
+  setChatOpen: (isOpen: boolean) => void;
+  setCurrentChat: (chat: any) => void;
+  fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => void;
+};
+
+export const useSupabaseRealtime = ({
+  setChatOpen,
+  setCurrentChat,
+  fetchMatchUserDetails
+}: UseSupabaseRealtimeProps = {}) => {
   const { currentUser } = useAuth();
   const [newMatches, setNewMatches] = useState<any[]>([]);
   const [newMessages, setNewMessages] = useState<any[]>([]);
@@ -28,8 +39,10 @@ export const useSupabaseRealtime = () => {
           console.log('New match notification received:', payload);
           if (payload.new) {
             setNewMatches(prev => [...prev, payload.new]);
-            if ('id' in payload.new && 'user2_id' in payload.new && 'song_id' in payload.new) {
-              fetchMatchDetails(payload.new.id, payload.new.user2_id, payload.new.song_id);
+            const newData = payload.new as any;
+            if ('id' in newData && 'user2_id' in newData && 'song_id' in newData) {
+              // Automatically open chat when matched
+              fetchMatchUserDetails(newData.user2_id, newData.id, newData.song_id);
             }
           }
         }
@@ -46,15 +59,17 @@ export const useSupabaseRealtime = () => {
           console.log('New match notification received:', payload);
           if (payload.new) {
             setNewMatches(prev => [...prev, payload.new]);
-            if ('id' in payload.new && 'user1_id' in payload.new && 'song_id' in payload.new) {
-              fetchMatchDetails(payload.new.id, payload.new.user1_id, payload.new.song_id);
+            const newData = payload.new as any;
+            if ('id' in newData && 'user1_id' in newData && 'song_id' in newData) {
+              // Automatically open chat when matched
+              fetchMatchUserDetails(newData.user1_id, newData.id, newData.song_id);
             }
           }
         }
       )
       .subscribe();
     
-    // Subscribe to real-time updates for chat messages in matches where the user is involved
+    // Subscribe to real-time updates for chat messages
     const messagesChannel = supabase
       .channel('public:chat_messages')
       .on(
@@ -66,7 +81,6 @@ export const useSupabaseRealtime = () => {
         },
         (payload) => {
           console.log('New message received:', payload);
-          // We'll fetch the match details to check if the user is part of this match
           if (payload.new) {
             checkIfMessageIsRelevant(payload.new);
           }
@@ -97,7 +111,7 @@ export const useSupabaseRealtime = () => {
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(activeListenersChannel);
     };
-  }, [currentUser]);
+  }, [currentUser, fetchMatchUserDetails]);
   
   const fetchMatchDetails = async (matchId: string, otherUserId: string, songId: string) => {
     try {
@@ -136,6 +150,54 @@ export const useSupabaseRealtime = () => {
         genre: songData.genre || '',
         language: songData.language as 'hindi' | 'english'
       };
+      
+      // Fetch chat messages for this match
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('created_at', { ascending: true });
+        
+      if (messagesError) throw messagesError;
+      
+      // Create a chat object
+      const chat = {
+        id: matchId,
+        matchId: matchId,
+        users: [currentUser?.id, otherUserId],
+        messages: messagesData.map((msg) => ({
+          id: msg.id,
+          senderId: msg.sender_id,
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+          isBot: msg.sender_id === 'bot'
+        }))
+      };
+      
+      // If no messages yet, create a default welcome message
+      if (chat.messages.length === 0) {
+        const welcomeMessage = `You've matched with ${matchUser.name} listening to "${song.title}"! Say hello and start chatting!`;
+        chat.messages.push({
+          id: `msg-${Date.now()}`,
+          senderId: 'bot',
+          content: welcomeMessage,
+          timestamp: new Date(),
+          isBot: true
+        });
+        
+        // Save this welcome message to the database
+        await supabase
+          .from('chat_messages')
+          .insert({
+            match_id: matchId,
+            sender_id: 'bot',
+            content: welcomeMessage
+          });
+      }
+      
+      // Update the current chat and open the chat window
+      setCurrentChat(chat);
+      setChatOpen(true);
       
       toast({
         title: "New Music Connection!",
@@ -178,6 +240,9 @@ export const useSupabaseRealtime = () => {
               title: "New Message",
               description: `${senderData.name} sent you a message`,
             });
+            
+            // Auto-open chat window if there's a new message
+            setChatOpen(true);
           }
         }
       }
@@ -199,6 +264,7 @@ export const useSupabaseRealtime = () => {
     newMessages,
     activeListenerUpdates,
     clearNewMatches,
-    clearNewMessages
+    clearNewMessages,
+    fetchMatchDetails
   };
 };
