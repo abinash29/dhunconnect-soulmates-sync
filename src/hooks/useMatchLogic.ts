@@ -75,8 +75,19 @@ export const useMatchLogic = ({
         matchId
       );
       
+      // Show a toast notification about the match
+      toast({
+        title: "New Music Connection!",
+        description: `You've matched with ${matchUser.name} listening to "${songData.title}"`,
+      });
+      
     } catch (error) {
       console.error('Error fetching match details:', error);
+      toast({
+        title: "Match Error",
+        description: "There was a problem fetching your match details. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   

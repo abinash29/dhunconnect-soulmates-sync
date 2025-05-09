@@ -89,8 +89,26 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
-  // Use the Supabase realtime hook
-  const { newMatches, newMessages } = useSupabaseRealtime();
+  // Use the Supabase realtime hook with proper props
+  const supabaseRealtime = useSupabaseRealtime({
+    setChatOpen: (isOpen: boolean) => {
+      if (toggleChat && isOpen) {
+        toggleChat();
+      }
+    },
+    setCurrentChat: (chat: any) => {
+      // Ensure we're setting the chat properly
+      if (chat) {
+        console.log("Setting current chat from Supabase realtime:", chat);
+      }
+    },
+    fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => {
+      if (fetchMatchUserDetails) {
+        console.log("Fetching match user details from Supabase realtime");
+        fetchMatchUserDetails(userId, matchId, songId);
+      }
+    }
+  });
 
   // Register the current authenticated user when they log in
   useEffect(() => {
@@ -166,6 +184,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (currentUser) {
       console.log(`User ${currentUser.name} is now listening to ${song.title}`);
       registerActiveListener(currentUser.id, song.id);
+      
+      // Show toast to indicate active listening
+      toast({
+        title: "Now Listening",
+        description: `You're now listening to ${song.title} by ${song.artist}`,
+      });
     }
     
     // Update active listeners count for this song

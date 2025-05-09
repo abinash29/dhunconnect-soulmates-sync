@@ -47,6 +47,11 @@ export const useSupabaseRealtime = ({
             if ('id' in newData && 'user2_id' in newData && 'song_id' in newData) {
               // Automatically open chat when matched
               fetchMatchUserDetails(newData.user2_id, newData.id, newData.song_id);
+              
+              toast({
+                title: "New Music Match!",
+                description: `You've matched with someone listening to the same song!`,
+              });
             }
           }
         }
@@ -67,11 +72,18 @@ export const useSupabaseRealtime = ({
             if ('id' in newData && 'user1_id' in newData && 'song_id' in newData) {
               // Automatically open chat when matched
               fetchMatchUserDetails(newData.user1_id, newData.id, newData.song_id);
+              
+              toast({
+                title: "New Music Match!",
+                description: `You've matched with someone listening to the same song!`,
+              });
             }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Matches subscription status:', status);
+      });
     
     // Subscribe to real-time updates for chat messages
     const messagesChannel = supabase
@@ -90,7 +102,9 @@ export const useSupabaseRealtime = ({
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Messages subscription status:', status);
+      });
     
     // Subscribe to active listener updates
     const activeListenersChannel = supabase
@@ -107,7 +121,9 @@ export const useSupabaseRealtime = ({
           setActiveListenerUpdates(prev => [...prev, payload]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Active listeners subscription status:', status);
+      });
     
     // Clean up subscriptions
     return () => {

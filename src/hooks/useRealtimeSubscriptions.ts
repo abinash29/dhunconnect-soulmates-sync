@@ -56,7 +56,7 @@ export const useRealtimeSubscriptions = ({
           
           // Use proper type casting and property checks
           const newData = payload.new as ActiveListenerPayload;
-          if (newData && 'song_id' in newData && 'user_id' in newData) {
+          if (newData && newData.song_id && newData.user_id) {
             updateActiveListenersCount(newData.song_id);
             
             // Only process active listeners
@@ -93,7 +93,7 @@ export const useRealtimeSubscriptions = ({
           
           // Use proper type casting and property checks
           const newMatch = payload.new as MatchPayload;
-          if (newMatch && currentUser && 'user1_id' in newMatch && 'user2_id' in newMatch) {
+          if (newMatch && currentUser && newMatch.user1_id && newMatch.user2_id) {
             // Check if current user is part of this match
             const isUserInMatch = newMatch.user1_id === currentUser.id || 
                                 newMatch.user2_id === currentUser.id;
