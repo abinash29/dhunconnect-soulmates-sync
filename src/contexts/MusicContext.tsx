@@ -84,7 +84,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     registerConnectedUser,
     unregisterConnectedUser,
     addMockConnectedUsers,
-    connectedUsers
+    connectedUsers,
+    fetchMatchUserDetails
   } = useMatchmaking();
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
@@ -102,12 +103,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.log("Setting current chat from Supabase realtime:", chat);
       }
     },
-    fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => {
-      if (fetchMatchUserDetails) {
-        console.log("Fetching match user details from Supabase realtime");
-        fetchMatchUserDetails(userId, matchId, songId);
-      }
-    }
+    fetchMatchUserDetails: fetchMatchUserDetails
   });
 
   // Register the current authenticated user when they log in

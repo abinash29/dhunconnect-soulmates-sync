@@ -86,6 +86,7 @@ export const useMatchmaking = () => {
     registerConnectedUser,
     unregisterConnectedUser,
     addMockConnectedUsers,
-    connectedUsers
+    connectedUsers,
+    fetchMatchUserDetails  // Make sure to export this function
   };
 };
