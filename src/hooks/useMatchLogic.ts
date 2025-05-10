@@ -142,6 +142,9 @@ export const useMatchLogic = ({
               description: "Someone is listening to the same song as you!",
               variant: "default",
             });
+            
+            // Explicitly force the chat to open
+            setChatOpen(true);
           } else {
             console.error('Failed to create match');
           }
@@ -149,6 +152,9 @@ export const useMatchLogic = ({
           console.log('Match already exists between these users for this song');
           // Even if match exists, we should still open the chat
           await fetchMatchUserDetails(otherUserId, existingMatch.id, songId);
+          
+          // Force chat to open
+          setChatOpen(true);
         }
       } else {
         console.log('Current user is not actively listening to this song');

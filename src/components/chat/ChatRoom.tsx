@@ -18,11 +18,11 @@ const ChatRoom: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
 
-  // Force chat to open if we have a match and current chat
+  // Force chat to open if we have a match and current chat - CRITICAL FIX
   useEffect(() => {
     if (currentMatch && currentChat && !chatOpen) {
       console.log("Auto-opening chat due to new match");
-      toggleChat();
+      toggleChat(); // Open the chat
     }
   }, [currentMatch, currentChat, chatOpen, toggleChat]);
 
@@ -49,6 +49,7 @@ const ChatRoom: React.FC = () => {
               const newMessage = {
                 id: payload.new.id,
                 senderId: payload.new.sender_id,
+                receiverId: payload.new.receiver_id,
                 content: payload.new.content,
                 timestamp: new Date(payload.new.created_at || new Date()),
                 isBot: payload.new.sender_id === 'bot'

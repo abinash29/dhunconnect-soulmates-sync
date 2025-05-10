@@ -15,7 +15,7 @@ export const useSupabaseRealtime = ({
   setChatOpen = () => {},
   setCurrentChat = () => {},
   fetchMatchUserDetails = () => {}
-}: UseSupabaseRealtimeProps = {}) => {
+}: UseSupabaseRealtimeProps) => {
   const { currentUser } = useAuth();
   const [newMatches, setNewMatches] = useState<any[]>([]);
   const [newMessages, setNewMessages] = useState<any[]>([]);
