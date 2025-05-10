@@ -92,10 +92,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
   // Use the Supabase realtime hook with proper props
-  const supabaseRealtime = useSupabaseRealtime({
+  useSupabaseRealtime({
     setChatOpen: (isOpen: boolean) => {
       if (isOpen && toggleChat) {
         console.log("Opening chat from realtime notification");
+        // Set chatOpen to true directly
         toggleChat();
       }
     },
@@ -105,7 +106,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.log("Setting current chat from Supabase realtime:", chat);
       }
     },
-    fetchMatchUserDetails: fetchMatchUserDetails
+    fetchMatchUserDetails
   });
 
   // Register the current authenticated user when they log in

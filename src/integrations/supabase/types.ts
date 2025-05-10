@@ -47,6 +47,7 @@ export type Database = {
           created_at: string | null
           id: string
           match_id: string
+          receiver_id: string | null
           sender_id: string
         }
         Insert: {
@@ -54,6 +55,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           match_id: string
+          receiver_id?: string | null
           sender_id: string
         }
         Update: {
@@ -61,6 +63,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           match_id?: string
+          receiver_id?: string | null
           sender_id?: string
         }
         Relationships: [

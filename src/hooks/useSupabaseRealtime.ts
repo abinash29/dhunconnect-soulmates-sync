@@ -6,9 +6,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
 type UseSupabaseRealtimeProps = {
-  setChatOpen: (isOpen: boolean) => void;
-  setCurrentChat: (chat: any) => void;
-  fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => void;
+  setChatOpen?: (isOpen: boolean) => void;
+  setCurrentChat?: (chat: any) => void;
+  fetchMatchUserDetails?: (userId: string, matchId: string, songId: string) => void;
 };
 
 export const useSupabaseRealtime = ({
