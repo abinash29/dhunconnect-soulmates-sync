@@ -28,6 +28,7 @@ export interface Match {
 export interface Message {
   id: string;
   senderId: string;
+  receiverId?: string | null;
   content: string;
   timestamp: Date;
   isBot?: boolean;

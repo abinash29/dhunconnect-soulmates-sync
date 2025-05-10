@@ -98,12 +98,13 @@ export const useSupabaseRealtime = ({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'chat_messages'
+          table: 'chat_messages',
+          filter: `receiver_id=eq.${currentUser.id}` // Messages where user is receiver
         },
         (payload) => {
-          console.log('New message received:', payload);
+          console.log('New message received (as receiver):', payload);
           if (payload.new) {
-            checkIfMessageIsRelevant(payload.new);
+            handleNewMessage(payload.new);
           }
         }
       )
@@ -117,6 +118,52 @@ export const useSupabaseRealtime = ({
       supabase.removeChannel(messagesChannel);
     };
   }, [currentUser, fetchMatchUserDetails, setChatOpen, setCurrentChat]);
+  
+  // Handle incoming message
+  const handleNewMessage = async (messageData: any) => {
+    if (!currentUser) return;
+    
+    try {
+      // Add the message to state
+      setNewMessages(prev => [...prev, messageData]);
+      
+      // Get match data
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('id', messageData.match_id)
+        .single();
+      
+      if (matchError) {
+        console.error('Error fetching match data:', matchError);
+        return;
+      }
+      
+      // Get sender name
+      const { data: senderData, error: senderError } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', messageData.sender_id)
+        .single();
+      
+      if (!senderError && senderData) {
+        toast({
+          title: "New Message",
+          description: `${senderData.name} sent you a message`,
+          variant: "default",
+        });
+        
+        // Auto-open chat window if there's a new message
+        setChatOpen(true);
+        
+        // Set the current chat to this match
+        const otherUserId = matchData.user1_id === currentUser.id ? matchData.user2_id : matchData.user1_id;
+        fetchMatchUserDetails(otherUserId, matchData.id, matchData.song_id);
+      }
+    } catch (error) {
+      console.error('Error handling new message:', error);
+    }
+  };
   
   const checkIfMessageIsRelevant = async (messageData: any) => {
     if (!currentUser) return;

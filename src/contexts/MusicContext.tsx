@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
@@ -96,7 +95,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setChatOpen: (isOpen: boolean) => {
       if (isOpen && toggleChat) {
         console.log("Opening chat from realtime notification");
-        // Set chatOpen to true directly
+        // Force open the chat
         toggleChat();
       }
     },

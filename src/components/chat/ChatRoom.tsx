@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -88,6 +89,7 @@ const ChatRoom: React.FC = () => {
       const messages = data.map(msg => ({
         id: msg.id,
         senderId: msg.sender_id,
+        receiverId: msg.receiver_id,
         content: msg.content,
         timestamp: new Date(msg.created_at || new Date()),
         isBot: msg.sender_id === 'bot'
@@ -98,6 +100,7 @@ const ChatRoom: React.FC = () => {
         const welcomeMessage = {
           id: `msg-${Date.now()}`,
           senderId: 'bot',
+          receiverId: null,
           content: `You've matched with ${currentMatch.name}! Start a conversation about your shared music taste.`,
           timestamp: new Date(),
           isBot: true
@@ -111,6 +114,7 @@ const ChatRoom: React.FC = () => {
           .insert({
             match_id: matchId,
             sender_id: 'bot',
+            receiver_id: null,
             content: welcomeMessage.content
           });
       }
@@ -145,6 +149,7 @@ const ChatRoom: React.FC = () => {
     const newMessage = {
       id: `msg-${Date.now()}`,
       senderId: currentUser.id,
+      receiverId: currentMatch?.id || null,
       content: message,
       timestamp: new Date(),
       isBot: false,
@@ -160,6 +165,7 @@ const ChatRoom: React.FC = () => {
         .insert({
           match_id: currentChat.matchId,
           sender_id: currentUser.id,
+          receiver_id: currentMatch?.id || null,
           content: message
         });
         

@@ -20,6 +20,7 @@ export const useMessageHandling = ({ currentUser }: UseMessageHandlingProps) => 
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       senderId: currentUser.id,
+      receiverId: currentChat.users.find(id => id !== currentUser.id) || null,
       content,
       timestamp: new Date(),
     };
@@ -33,7 +34,12 @@ export const useMessageHandling = ({ currentUser }: UseMessageHandlingProps) => 
     
     // If this is a real match (has a UUID match ID), save the message to the database
     if (currentChat.matchId.length > 20) { // Simple check for UUID format
-      await sendChatMessage(currentChat.matchId, currentUser.id, content);
+      await sendChatMessage(
+        currentChat.matchId, 
+        currentUser.id, 
+        content, 
+        newMessage.receiverId || undefined
+      );
     }
   };
   
