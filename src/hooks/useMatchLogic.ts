@@ -1,18 +1,13 @@
-
-import { User, Song, Chat, Message } from '@/types';
-import { toast } from '@/hooks/use-toast';
-import { 
-  findPotentialMatches, 
-  createMatch, 
-  sendChatMessage, 
-  registerActiveListener
-} from '@/services/musicApi';
+import { useState, useEffect } from 'react';
+import { User, Song } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
-type UseMatchLogicProps = {
+type MatchLogicProps = {
   currentUser: User | null;
-  setCurrentMatch: (match: User | null) => void;
-  setCurrentChat: (chat: Chat | null) => void;
+  setCurrentMatch: (user: User | null) => void;
+  setCurrentChat: (chat: any) => void;
   setChatOpen: (isOpen: boolean) => void;
 };
 
@@ -21,122 +16,249 @@ export const useMatchLogic = ({
   setCurrentMatch,
   setCurrentChat,
   setChatOpen
-}: UseMatchLogicProps) => {
-  // Function to fetch user details for a match
-  const fetchMatchUserDetails = async (userId: string, matchId: string, songId: string) => {
+}: MatchLogicProps) => {
+  const findMatch = async (song: Song) => {
+    if (!currentUser) {
+      console.log("Cannot find match: User not logged in.");
+      return;
+    }
+    
+    console.log(`Attempting to find a match for user ${currentUser.id} and song ${song.id}`);
+    
     try {
-      console.log(`Fetching match details for user ${userId} on match ${matchId} for song ${songId}`);
+      // Find users currently listening to the same song
+      const { data: activeListeners, error } = await supabase
+        .from('active_listeners')
+        .select('user_id')
+        .eq('song_id', song.id)
+        .eq('is_active', true)
+        .neq('user_id', currentUser.id); // Exclude current user
       
-      // Get user profile data
-      const { data: userData, error: userError } = await supabase
+      if (error) {
+        console.error("Error fetching active listeners:", error);
+        return;
+      }
+      
+      if (activeListeners && activeListeners.length > 0) {
+        console.log(`Found ${activeListeners.length} potential matches for song ${song.id}`);
+        
+        // Select a random user from the active listeners
+        const randomIndex = Math.floor(Math.random() * activeListeners.length);
+        const matchedUserId = activeListeners[randomIndex].user_id;
+        
+        console.log(`Attempting to match with user ID: ${matchedUserId}`);
+        
+        // Fetch the matched user's details
+        const { data: matchedUser, error: userError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', matchedUserId)
+          .single();
+        
+        if (userError) {
+          console.error("Error fetching matched user details:", userError);
+          return;
+        }
+        
+        if (matchedUser) {
+          console.log(`Successfully matched with user: ${matchedUser.name}`);
+          
+          // Check if a match already exists between the current user and the matched user for this song
+          const { data: existingMatches, error: matchError } = await supabase
+            .from('matches')
+            .select('*')
+            .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${matchedUserId}),and(user1_id.eq.${matchedUserId},user2_id.eq.${currentUser.id})`)
+            .eq('song_id', song.id);
+          
+          if (matchError) {
+            console.error("Error checking for existing matches:", matchError);
+            return;
+          }
+          
+          if (existingMatches && existingMatches.length > 0) {
+            console.log("Match already exists for these users and song.");
+            
+            // Fetch the existing match details
+            const existingMatch = existingMatches[0];
+            
+            // Open the chat with the existing match details
+            fetchMatchUserDetails(matchedUserId, existingMatch.id, song.id);
+            
+            // Set the current match
+            setCurrentMatch(matchedUser as User);
+            
+            // Show a toast notification
+            toast({
+              title: "Match Found!",
+              description: `You've already matched with ${matchedUser.name} for this song.`,
+              variant: "default",
+            });
+            
+            // Explicitly force the chat to open
+            setChatOpen(true);
+          } else {
+            console.log("No existing match found, creating new match");
+            
+            // Create a new match
+            const { data: newMatch, error: insertError } = await supabase
+              .from('matches')
+              .insert({
+                user1_id: currentUser.id,
+                user2_id: matchedUserId,
+                song_id: song.id
+              })
+              .select()
+              .single();
+            
+            if (insertError) {
+              console.error("Error creating new match:", insertError);
+              return;
+            }
+            
+            if (newMatch) {
+              console.log("Successfully created new match:", newMatch);
+              
+              // Fetch the match details
+              fetchMatchUserDetails(matchedUserId, newMatch.id, song.id);
+              
+              // Set the current match
+              setCurrentMatch(matchedUser as User);
+              
+              // Show a toast notification
+              toast({
+                title: "New Music Match!",
+                description: `You've matched with ${matchedUser.name}!`,
+                variant: "default",
+              });
+              
+              // Explicitly force the chat to open
+              setChatOpen(true);
+            }
+          }
+        }
+      } else {
+        console.log("No active listeners found for this song.");
+        toast({
+          title: "No Match Found",
+          description: "No one is listening to this song right now. Try again later!",
+          duration: 5000,
+        });
+      }
+    } catch (err) {
+      console.error("Error in findMatch:", err);
+    }
+  };
+
+  const fetchMatchUserDetails = async (userId: string, matchId: string, songId: string) => {
+    if (!currentUser) {
+      console.log("Cannot fetch match user details: User not logged in.");
+      return;
+    }
+    
+    console.log(`Fetching match user details for user ID: ${userId}, match ID: ${matchId}, song ID: ${songId}`);
+    
+    try {
+      // Fetch the matched user's details
+      const { data: matchedUser, error: userError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
       
       if (userError) {
-        console.error('Error fetching user data:', userError);
-        throw userError;
+        console.error("Error fetching matched user details:", userError);
+        return;
       }
       
-      // Get song details
-      const { data: songData, error: songError } = await supabase
-        .from('songs')
+      // Fetch the chat messages for this match
+      const { data: chatMessages, error: chatError } = await supabase
+        .from('chat_messages')
         .select('*')
-        .eq('id', songId)
-        .single();
-        
-      if (songError) {
-        console.error('Error fetching song data:', songError);
-        throw songError;
+        .eq('match_id', matchId)
+        .order('created_at', { ascending: true });
+      
+      if (chatError) {
+        console.error("Error fetching chat messages:", chatError);
+        return;
       }
       
-      const matchUser: User = {
-        id: userData.id,
-        name: userData.name || 'Unknown User',
-        email: userData.email || '',
-        avatar: userData.avatar
+      // Structure the chat data
+      const chatData = {
+        id: matchId,
+        matchId: matchId,
+        messages: chatMessages || [],
+        users: [currentUser.id, userId],
       };
       
-      console.log('Creating real match with user:', matchUser);
+      console.log("Match user details fetched successfully:", matchedUser);
+      console.log("Chat data:", chatData);
       
-      const song: Song = {
-        id: songData.id,
-        title: songData.title,
-        artist: songData.artist,
-        albumArt: songData.album_art,
-        audioUrl: songData.audio_url,
-        duration: songData.duration,
-        genre: songData.genre || '',
-        language: songData.language as 'hindi' | 'english'
-      };
+      // Set the current match
+      setCurrentMatch(matchedUser as User);
       
-      createRealMatch(song, matchUser, matchId);
+      // Set the current chat
+      setCurrentChat(chatData);
       
-      // Show a toast notification about the match
-      toast({
-        title: "New Music Connection!",
-        description: `You've matched with ${matchUser.name} listening to "${songData.title}"`,
-      });
-      
+      // Open the chat
+      setChatOpen(true);
     } catch (error) {
-      console.error('Error fetching match details:', error);
-      toast({
-        title: "Match Error",
-        description: "There was a problem fetching your match details. Please try again.",
-        variant: "destructive",
-      });
+      console.error("Error in fetchMatchUserDetails:", error);
     }
   };
-  
-  // Check for real-time match when another user starts listening to the same song
+
   const checkForRealTimeMatch = async (songId: string, otherUserId: string) => {
-    if (!currentUser || !songId) return;
+    if (!currentUser || !songId || !otherUserId || otherUserId === currentUser.id) {
+      return;
+    }
     
     try {
-      console.log(`Checking for real-time match between user ${currentUser.id} and ${otherUserId} on song ${songId}`);
+      console.log(`Checking for real-time match for song ${songId} with user ${otherUserId}`);
       
-      // Check if current user is listening to this song
-      const { data: currentUserListening, error: listeningError } = await supabase
+      // Check if current user is actively listening to this song
+      const { data: activeListenerData } = await supabase
         .from('active_listeners')
         .select('*')
         .eq('user_id', currentUser.id)
         .eq('song_id', songId)
         .eq('is_active', true)
-        .maybeSingle();
+        .single();
       
-      if (listeningError) {
-        console.error('Error checking if current user is listening:', listeningError);
-        throw listeningError;
-      }
-      
-      // If current user is listening to the same song as the other user
-      if (currentUserListening) {
-        console.log('Match confirmed! Both users listening to the same song:', songId);
+      if (activeListenerData) {
+        console.log('Current user is actively listening to this song');
         
-        // Check if these users are already matched
-        const { data: existingMatch, error: matchError } = await supabase
+        // Check if match already exists between these users for this song
+        const { data: existingMatches } = await supabase
           .from('matches')
-          .select('id')
+          .select('*')
           .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${otherUserId}),and(user1_id.eq.${otherUserId},user2_id.eq.${currentUser.id})`)
-          .eq('song_id', songId)
-          .maybeSingle();
+          .eq('song_id', songId);
         
-        if (matchError) {
-          console.error('Error checking for existing match:', matchError);
-          throw matchError;
-        }
+        const existingMatch = existingMatches && existingMatches.length > 0 ? existingMatches[0] : null;
         
         if (!existingMatch) {
-          console.log('Creating new match between users', currentUser.id, 'and', otherUserId);
-          // Create a new match since one doesn't exist
-          const matchId = await createMatch(currentUser.id, otherUserId, songId);
+          console.log('No existing match found, creating new match');
           
-          if (matchId) {
-            console.log('Match created successfully with ID:', matchId);
-            // We will fetch the other user's details to open the chat automatically
-            await fetchMatchUserDetails(otherUserId, matchId, songId);
+          // Create a new match
+          const { data: newMatch, error: matchError } = await supabase
+            .from('matches')
+            .insert({
+              user1_id: currentUser.id,
+              user2_id: otherUserId,
+              song_id: songId
+            })
+            .select()
+            .single();
+          
+          if (matchError) {
+            console.error('Error creating match:', matchError);
+            return;
+          }
+          
+          if (newMatch) {
+            console.log('New match created:', newMatch);
+            await fetchMatchUserDetails(otherUserId, newMatch.id, songId);
             
+            // Show a toast notification
             toast({
               title: "New Music Match!",
               description: "Someone is listening to the same song as you!",
@@ -163,109 +285,7 @@ export const useMatchLogic = ({
       console.error('Error checking for real-time match:', error);
     }
   };
-  
-  // Find a match for the current song - this runs when the current user starts playing
-  const findMatch = async (song: Song) => {
-    console.log("Finding match for song:", song.title);
-    
-    if (!currentUser) return;
-    
-    // Register as active listener for this song
-    await registerActiveListener(currentUser.id, song.id);
-    console.log(`Registered user ${currentUser.id} as active listener for song ${song.id}`);
-    
-    // Look for real matches - other users currently listening to the same song
-    const potentialMatches = await findPotentialMatches(currentUser.id, song.id);
-    console.log('Potential matches found:', potentialMatches);
-    
-    if (potentialMatches && potentialMatches.length > 0) {
-      // Get the first match
-      const match = potentialMatches[0];
-      
-      // Create a user object from the match
-      const matchUser: User = {
-        id: match.user_id,
-        name: match.profiles?.name || 'Unknown User',
-        email: match.profiles?.email || '',
-        avatar: match.profiles?.avatar
-      };
-      
-      console.log('Creating match with user:', matchUser.name);
-      
-      // Create the match in the database
-      const matchId = await createMatch(currentUser.id, matchUser.id, song.id);
-      
-      if (matchId) {
-        createRealMatch(song, matchUser, matchId);
-      } else {
-        console.log("Failed to create match");
-        toast({
-          title: "Looking for matches",
-          description: "We'll notify you when someone else starts listening to this song",
-        });
-      }
-    } else {
-      console.log("No match found at this time");
-      toast({
-        title: "Looking for matches",
-        description: "We'll notify you when someone else starts listening to this song",
-        variant: "default",
-      });
-    }
-  };
-  
-  // Create a match with a real user
-  const createRealMatch = (song: Song, matchUser: User, matchId?: string) => {
-    console.log('Creating real match UI for:', matchUser.name, 'on song:', song.title);
-    
-    setCurrentMatch(matchUser);
-    
-    // Create a more personalized opening message with the real user
-    const openingMessages = [
-      `You and ${matchUser.name} are both enjoying "${song.title}"! Why not say hello?`,
-      `${matchUser.name} loves "${song.title}" too! Start a conversation about your shared taste.`,
-      `Musical match found! ${matchUser.name} is also listening to "${song.title}" right now.`,
-      `Great minds think alike! ${matchUser.name} is also enjoying "${song.title}". Say hi!`
-    ];
-    
-    const randomOpening = openingMessages[Math.floor(Math.random() * openingMessages.length)];
-    
-    const chatId = matchId || `chat-${Date.now()}`;
-    
-    const newChat: Chat = {
-      id: chatId,
-      matchId: chatId,
-      users: [currentUser?.id || 'current-user', matchUser.id],
-      messages: [
-        {
-          id: `msg-${Date.now()}`,
-          senderId: 'bot',
-          content: randomOpening,
-          timestamp: new Date(),
-          isBot: true,
-        }
-      ]
-    };
-    
-    setCurrentChat(newChat);
-    
-    // Automatically open the chat when a match is found - CRITICAL!
-    console.log("Automatically opening chat window for match");
-    setChatOpen(true);
-    
-    toast({
-      title: "You found a music soulmate!",
-      description: `${matchUser.name} is also listening to ${song.title}`,
-      variant: "default",
-    });
-    
-    // If we have a real match ID, save the first message
-    if (matchId && currentUser) {
-      // We'll send the bot message to the database
-      sendChatMessage(matchId, 'bot', randomOpening);
-    }
-  };
-  
+
   return {
     findMatch,
     fetchMatchUserDetails,

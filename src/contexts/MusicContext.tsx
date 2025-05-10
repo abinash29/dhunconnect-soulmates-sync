@@ -105,6 +105,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Ensure we're setting the chat properly
       if (chat) {
         console.log("Setting current chat from Supabase realtime:", chat);
+        setCurrentChat(chat);
       }
     },
     fetchMatchUserDetails

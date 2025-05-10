@@ -328,49 +328,54 @@ export const createMatch = async (user1Id: string, user2Id: string, songId: stri
   }
 };
 
-export const sendChatMessage = async (matchId: string, senderId: string, content: string): Promise<boolean> => {
-  if (!matchId || !senderId || !content.trim()) return false;
-  
+export const sendChatMessage = async (
+  matchId: string,
+  senderId: string,
+  content: string
+) => {
+  if (!matchId || !senderId || !content.trim()) {
+    console.error('Missing required parameters for sending chat message');
+    return null;
+  }
+
   try {
-    console.log(`Sending chat message in match ${matchId} from ${senderId}`);
-    
-    // First, get the match details to find the receiver_id
+    // First get the match to determine the receiver
     const { data: matchData, error: matchError } = await supabase
       .from('matches')
-      .select('user1_id, user2_id')
+      .select('*')
       .eq('id', matchId)
       .single();
     
     if (matchError) {
-      console.error('Error fetching match details:', matchError);
-      return false;
+      console.error('Error fetching match data:', matchError);
+      return null;
     }
     
-    // Determine the receiver_id based on the sender_id and match data
-    let receiver_id = null;
-    if (matchData) {
-      receiver_id = matchData.user1_id === senderId ? matchData.user2_id : matchData.user1_id;
-    }
+    // Determine the receiver based on the sender and match data
+    const receiverId = matchData.user1_id === senderId 
+      ? matchData.user2_id 
+      : matchData.user1_id;
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('chat_messages')
-      .insert({ 
-        match_id: matchId, 
-        sender_id: senderId, 
-        content,
-        receiver_id // Include the receiver_id in the insert
-      });
+      .insert({
+        match_id: matchId,
+        sender_id: senderId,
+        receiver_id: receiverId,
+        content
+      })
+      .select()
+      .single();
     
     if (error) {
       console.error('Error sending chat message:', error);
-      return false;
+      return null;
     }
     
-    console.log('Chat message sent successfully');
-    return true;
+    return data;
   } catch (error) {
     console.error('Error in sendChatMessage:', error);
-    return false;
+    return null;
   }
 };
 
