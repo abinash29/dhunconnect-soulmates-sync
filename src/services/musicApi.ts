@@ -334,12 +334,31 @@ export const sendChatMessage = async (matchId: string, senderId: string, content
   try {
     console.log(`Sending chat message in match ${matchId} from ${senderId}`);
     
+    // First, get the match details to find the receiver_id
+    const { data: matchData, error: matchError } = await supabase
+      .from('matches')
+      .select('user1_id, user2_id')
+      .eq('id', matchId)
+      .single();
+    
+    if (matchError) {
+      console.error('Error fetching match details:', matchError);
+      return false;
+    }
+    
+    // Determine the receiver_id based on the sender_id and match data
+    let receiver_id = null;
+    if (matchData) {
+      receiver_id = matchData.user1_id === senderId ? matchData.user2_id : matchData.user1_id;
+    }
+    
     const { error } = await supabase
       .from('chat_messages')
       .insert({ 
         match_id: matchId, 
         sender_id: senderId, 
-        content
+        content,
+        receiver_id // Include the receiver_id in the insert
       });
     
     if (error) {

@@ -37,8 +37,8 @@ export const useMessageHandling = ({ currentUser }: UseMessageHandlingProps) => 
       await sendChatMessage(
         currentChat.matchId, 
         currentUser.id, 
-        content, 
-        newMessage.receiverId || undefined
+        content
+        // Removed the fourth parameter (receiver_id) as it's now handled in the musicApi service
       );
     }
   };
