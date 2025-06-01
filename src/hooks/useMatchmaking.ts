@@ -41,7 +41,7 @@ export const useMatchmaking = () => {
     currentUser,
     setCurrentMatch,
     setCurrentChat,
-    setChatOpen
+    setChatOpen: () => setChatOpen(true)  // Fix the TypeScript error
   });
   
   // Set up real-time subscriptions
@@ -54,8 +54,7 @@ export const useMatchmaking = () => {
   
   // Set up Supabase realtime for enhanced chat functionality
   const supabaseRealtime = useSupabaseRealtime({
-    setChatOpen,
-    setCurrentChat,
+    setChatOpen: () => setChatOpen(true),  // Fix the TypeScript error here too
     fetchMatchUserDetails
   });
   
@@ -87,6 +86,6 @@ export const useMatchmaking = () => {
     unregisterConnectedUser,
     addMockConnectedUsers,
     connectedUsers,
-    fetchMatchUserDetails  // Make sure to export this function
+    fetchMatchUserDetails
   };
 };

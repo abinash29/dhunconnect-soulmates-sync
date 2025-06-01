@@ -6,14 +6,14 @@ import { toast } from '@/hooks/use-toast';
 export const useUserManagement = () => {
   const [connectedUsers, setConnectedUsers] = useState<User[]>([]);
 
-  // Register a new connected user
+  // Register a new connected user (only real matched users)
   const registerConnectedUser = (user: User) => {
     setConnectedUsers(prev => {
       // Check if user is already registered
       if (prev.some(existingUser => existingUser.id === user.id)) {
         return prev;
       }
-      console.log('Registering connected user:', user.name);
+      console.log('Registering matched user:', user.name);
       return [...prev, user];
     });
   };
@@ -24,13 +24,12 @@ export const useUserManagement = () => {
     setConnectedUsers(prev => prev.filter(user => user.id !== userId));
   };
   
-  // Completely disabled mock users function
+  // Mock users function disabled - only real matches allowed
   const addMockConnectedUsers = () => {
-    // This function is completely disabled - no mock users allowed
     console.log("Mock users are disabled - only real matched users are shown");
     toast({
       title: "Real Matches Only",
-      description: "Chat shows only users you've actually matched with while listening to music.",
+      description: "Connected Users shows only people you've actually matched with.",
     });
   };
 

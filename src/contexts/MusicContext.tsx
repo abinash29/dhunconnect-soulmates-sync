@@ -90,10 +90,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
-  // Use the Supabase realtime hook with proper props
+  // Use the Supabase realtime hook with proper props including registerConnectedUser
   useSupabaseRealtime({
     setChatOpen: toggleChat,
-    fetchMatchUserDetails
+    fetchMatchUserDetails,
+    registerConnectedUser
   });
 
   // Register the current authenticated user when they log in
