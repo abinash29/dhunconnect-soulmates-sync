@@ -16,21 +16,36 @@ const Chat: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   
+  // Filter connected users and log for debugging
   useEffect(() => {
-    setFilteredUsers(connectedUsers);
-  }, [connectedUsers]);
+    console.log('Chat component - Current connected users:', connectedUsers);
+    console.log('Chat component - Current user ID:', currentUser?.id);
+    
+    // Filter out current user from connected users
+    const filtered = connectedUsers.filter(user => 
+      currentUser && user.id !== currentUser.id
+    );
+    
+    console.log('Chat component - Filtered connected users:', filtered);
+    setFilteredUsers(filtered);
+  }, [connectedUsers, currentUser]);
   
   useEffect(() => {
     if (searchQuery) {
+      const searchFiltered = connectedUsers.filter(user => 
+        user.id !== currentUser?.id && (
+          user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          user.email.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      );
+      setFilteredUsers(searchFiltered);
+    } else {
       const filtered = connectedUsers.filter(user => 
-        user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+        currentUser && user.id !== currentUser.id
       );
       setFilteredUsers(filtered);
-    } else {
-      setFilteredUsers(connectedUsers);
     }
-  }, [searchQuery, connectedUsers]);
+  }, [searchQuery, connectedUsers, currentUser]);
   
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -58,6 +73,7 @@ const Chat: React.FC = () => {
   };
 
   const handleUserClick = (user: User) => {
+    console.log('Clicked on user:', user.name);
     // Open chat with this specific user
     toggleChat();
   };
@@ -93,9 +109,9 @@ const Chat: React.FC = () => {
           </div>
 
           {/* Connected Users (Real Matched Users Only) */}
-          {connectedUsers.length > 0 && (
+          {filteredUsers.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-lg font-medium mb-3">Connected Users ({connectedUsers.length})</h2>
+              <h2 className="text-lg font-medium mb-3">Connected Users ({filteredUsers.length})</h2>
               <div className="space-y-3">
                 {filteredUsers.map(user => (
                   <div key={user.id} className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
@@ -112,6 +128,15 @@ const Chat: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+          
+          {/* Debug info */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mb-4 p-4 bg-yellow-100 rounded-lg">
+              <p className="text-sm">Debug - Total connected users: {connectedUsers.length}</p>
+              <p className="text-sm">Debug - Filtered users: {filteredUsers.length}</p>
+              <p className="text-sm">Debug - Current user: {currentUser?.name}</p>
             </div>
           )}
           

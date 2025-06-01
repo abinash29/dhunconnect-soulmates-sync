@@ -25,9 +25,9 @@ export const useSupabaseRealtime = ({
     
     console.log('Setting up Supabase realtime subscriptions for user:', currentUser.id);
     
-    // Subscribe to ALL new matches in the matches table
+    // Subscribe to ALL new matches in the matches table - this will notify BOTH users
     const matchesChannel = supabase
-      .channel('realtime_matches')
+      .channel('realtime_matches_all')
       .on(
         'postgres_changes',
         {
@@ -44,7 +44,7 @@ export const useSupabaseRealtime = ({
             const isCurrentUserInMatch = newData.user1_id === currentUser.id || newData.user2_id === currentUser.id;
             
             if (isCurrentUserInMatch) {
-              console.log('Current user is part of this match');
+              console.log('Current user is part of this match:', newData);
               setNewMatches(prev => [...prev, payload.new]);
               
               // Determine the other user ID
@@ -59,6 +59,8 @@ export const useSupabaseRealtime = ({
                   .single();
                   
                 if (!error && otherUser) {
+                  console.log('Found matched user details:', otherUser);
+                  
                   const userObj: User = {
                     id: otherUser.id,
                     name: otherUser.name,
@@ -66,7 +68,7 @@ export const useSupabaseRealtime = ({
                     avatar: otherUser.avatar
                   };
                   
-                  // Register the matched user as connected
+                  // Register the matched user as connected - THIS IS KEY
                   registerConnectedUser(userObj);
                   
                   // Fetch match details and open chat
@@ -78,11 +80,16 @@ export const useSupabaseRealtime = ({
                     variant: "default",
                   });
                   
+                  // Open chat for both users
                   setChatOpen();
+                } else {
+                  console.error('Error fetching matched user details:', error);
                 }
               } catch (error) {
-                console.error('Error fetching matched user details:', error);
+                console.error('Error in match notification handler:', error);
               }
+            } else {
+              console.log('Current user is not part of this match');
             }
           }
         }

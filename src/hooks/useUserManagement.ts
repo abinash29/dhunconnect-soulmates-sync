@@ -8,25 +8,37 @@ export const useUserManagement = () => {
 
   // Register a new connected user (only real matched users, excluding current user)
   const registerConnectedUser = (user: User, currentUserId?: string) => {
+    console.log('Attempting to register connected user:', user.name, 'Current user ID:', currentUserId);
+    
     // Don't add the current user to their own connected users list
     if (currentUserId && user.id === currentUserId) {
+      console.log('Skipping registration - user is current user');
       return;
     }
     
     setConnectedUsers(prev => {
       // Check if user is already registered
-      if (prev.some(existingUser => existingUser.id === user.id)) {
+      const existingUser = prev.find(existingUser => existingUser.id === user.id);
+      if (existingUser) {
+        console.log('User already registered:', user.name);
         return prev;
       }
-      console.log('Registering matched user:', user.name);
-      return [...prev, user];
+      
+      console.log('Successfully registering matched user:', user.name);
+      const updatedUsers = [...prev, user];
+      console.log('Updated connected users list:', updatedUsers.map(u => u.name));
+      return updatedUsers;
     });
   };
   
   // Remove user when they disconnect
   const unregisterConnectedUser = (userId: string) => {
     console.log('Unregistering user:', userId);
-    setConnectedUsers(prev => prev.filter(user => user.id !== userId));
+    setConnectedUsers(prev => {
+      const updatedUsers = prev.filter(user => user.id !== userId);
+      console.log('Updated connected users after removal:', updatedUsers.map(u => u.name));
+      return updatedUsers;
+    });
   };
   
   // Mock users function disabled - only real matches allowed

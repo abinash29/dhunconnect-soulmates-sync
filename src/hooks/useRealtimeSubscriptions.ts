@@ -35,11 +35,11 @@ export const useRealtimeSubscriptions = ({
   checkForRealTimeMatch,
   fetchMatchUserDetails,
 }: RealtimeSubscriptionProps) => {
-  // Manage real-time subscriptions for active listeners and matches
+  // Manage real-time subscriptions for active listeners
   useEffect(() => {
     if (!currentUser) return;
     
-    console.log('Setting up real-time subscriptions for user:', currentUser.id);
+    console.log('Setting up real-time subscriptions for active listeners for user:', currentUser.id);
     
     // Subscribe to active listener changes
     const activeListenersChannel = supabase
@@ -59,17 +59,14 @@ export const useRealtimeSubscriptions = ({
           if (newData && newData.song_id && newData.user_id) {
             updateActiveListenersCount(newData.song_id);
             
-            // Only process active listeners
-            if (newData.is_active) {
-              // If a new active listener is detected for a song the current user is listening to
-              if (currentUser && newData.user_id !== currentUser.id) {
-                console.log('Potential match detected with user:', newData.user_id);
-                console.log('For song:', newData.song_id);
-                // Wait a brief moment to ensure both database records are saved
-                setTimeout(() => {
-                  checkForRealTimeMatch(newData.song_id, newData.user_id);
-                }, 500);
-              }
+            // Only process active listeners and exclude current user
+            if (newData.is_active && newData.user_id !== currentUser.id) {
+              console.log('Potential match detected with user:', newData.user_id);
+              console.log('For song:', newData.song_id);
+              // Wait a brief moment to ensure both database records are saved
+              setTimeout(() => {
+                checkForRealTimeMatch(newData.song_id, newData.user_id);
+              }, 500);
             }
           }
         }
@@ -78,52 +75,9 @@ export const useRealtimeSubscriptions = ({
         console.log('Active listeners subscription status:', status);
       });
       
-    // Subscribe to new matches - IMPROVED match detection for both users
-    const matchesChannel = supabase
-      .channel('matches_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'matches',
-        },
-        (payload: RealtimePostgresChangesPayload<MatchPayload>) => {
-          console.log('New match created:', payload);
-          
-          // Use proper type casting and property checks
-          const newMatch = payload.new as MatchPayload;
-          if (newMatch && currentUser && newMatch.user1_id && newMatch.user2_id) {
-            // Check if current user is part of this match
-            const isUserInMatch = newMatch.user1_id === currentUser.id || 
-                                newMatch.user2_id === currentUser.id;
-            
-            if (isUserInMatch) {
-              console.log('Current user is part of new match, fetching details');
-              const otherUserId = newMatch.user1_id === currentUser.id ? 
-                                newMatch.user2_id : newMatch.user1_id;
-              
-              // Pass match ID and song ID for creating the chat
-              fetchMatchUserDetails(otherUserId, newMatch.id, newMatch.song_id);
-              
-              // Display a toast notification immediately 
-              toast({
-                title: "New Music Connection!",
-                description: `You've been matched with someone listening to the same song!`,
-                variant: "default",
-              });
-            }
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Matches subscription status:', status);
-      });
-    
     return () => {
-      console.log('Cleaning up real-time subscriptions');
+      console.log('Cleaning up active listeners subscription');
       supabase.removeChannel(activeListenersChannel);
-      supabase.removeChannel(matchesChannel);
     };
   }, [currentUser, setActiveListeners, checkForRealTimeMatch, fetchMatchUserDetails]);
 
