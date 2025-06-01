@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Bot, X, Send, Music } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -18,12 +19,45 @@ interface Message {
 
 const Chatbot: React.FC = () => {
   const { currentUser } = useAuth();
-  const { loadSong, songs } = useMusic();
+  const { loadSong, songs, getMoodRecommendations } = useMusic();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [hasGreeted, setHasGreeted] = useState(false);
+  const [userListeningHistory, setUserListeningHistory] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  
+  // Fetch user's listening history when component mounts
+  useEffect(() => {
+    if (currentUser && open) {
+      fetchUserListeningHistory();
+    }
+  }, [currentUser, open]);
+  
+  // Fetch user's listening history
+  const fetchUserListeningHistory = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('active_listeners')
+        .select(`
+          song_id,
+          started_at,
+          songs:song_id (title, artist, genre, language)
+        `)
+        .eq('user_id', currentUser.id)
+        .order('started_at', { ascending: false })
+        .limit(10);
+        
+      if (!error && data) {
+        setUserListeningHistory(data);
+        console.log('User listening history:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching listening history:', error);
+    }
+  };
   
   // Scroll to bottom of messages
   useEffect(() => {
@@ -36,8 +70,8 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     if (open && !hasGreeted) {
       const greeting = currentUser 
-        ? `Hello ${currentUser.name}! Welcome to DhunConnect. I'm your music assistant. I can help you find songs, recommend music based on your mood, or answer questions about the app. How can I help you today?`
-        : "Hello! Welcome to DhunConnect. I'm your music assistant. I can help you find songs, recommend music based on your mood, or answer questions about the app. Sign in to unlock all features!";
+        ? `Hello ${currentUser.name}! I'm your music assistant. I can recommend songs based on your listening history, your mood, or help you discover new music. How can I help you today?`
+        : "Hello! Welcome to DhunConnect. I'm your music assistant. Sign in to get personalized recommendations based on your listening history!";
       
       setTimeout(() => {
         addMessage('bot', greeting);
@@ -71,6 +105,31 @@ const Chatbot: React.FC = () => {
     }, 600);
   };
   
+  const getPersonalizedRecommendations = () => {
+    if (!currentUser || userListeningHistory.length === 0) {
+      return songs.slice(0, 3);
+    }
+    
+    // Get user's favorite genres from history
+    const genreCounts: Record<string, number> = {};
+    userListeningHistory.forEach(item => {
+      if (item.songs?.genre) {
+        genreCounts[item.songs.genre] = (genreCounts[item.songs.genre] || 0) + 1;
+      }
+    });
+    
+    const favoriteGenre = Object.keys(genreCounts).reduce((a, b) => 
+      genreCounts[a] > genreCounts[b] ? a : b, 'Pop'
+    );
+    
+    // Find songs in user's favorite genre
+    const recommendedSongs = songs.filter(song => 
+      song.genre.toLowerCase().includes(favoriteGenre.toLowerCase())
+    ).slice(0, 3);
+    
+    return recommendedSongs.length > 0 ? recommendedSongs : songs.slice(0, 3);
+  };
+  
   const generateResponse = (userMessage: string): string => {
     const message = userMessage.toLowerCase();
     
@@ -80,8 +139,63 @@ const Chatbot: React.FC = () => {
     }
     
     if (message.includes('recommend') || message.includes('suggestion')) {
-      const randomSong = songs[Math.floor(Math.random() * songs.length)];
-      return `I'd recommend "${randomSong.title}" by ${randomSong.artist}. Would you like me to play it for you?`;
+      if (currentUser && userListeningHistory.length > 0) {
+        const recommendations = getPersonalizedRecommendations();
+        const recText = recommendations.map(song => `"${song.title}" by ${song.artist}`).join(', ');
+        return `Based on your listening history, I recommend: ${recText}. Would you like me to play one of these?`;
+      } else {
+        const randomSong = songs[Math.floor(Math.random() * songs.length)];
+        return `I'd recommend "${randomSong.title}" by ${randomSong.artist}. Would you like me to play it for you?`;
+      }
+    }
+    
+    // Mood-based recommendations
+    if (message.includes('happy') || message.includes('upbeat')) {
+      const happySongs = getMoodRecommendations('happy').slice(0, 2);
+      if (happySongs.length > 0) {
+        const songText = happySongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
+        return `For a happy mood, try ${songText}! Want me to play one?`;
+      }
+    }
+    
+    if (message.includes('sad') || message.includes('down')) {
+      const sadSongs = getMoodRecommendations('sad').slice(0, 2);
+      if (sadSongs.length > 0) {
+        const songText = sadSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
+        return `For when you're feeling down, I suggest ${songText}. Music can be healing.`;
+      }
+    }
+    
+    if (message.includes('energetic') || message.includes('workout') || message.includes('exercise')) {
+      const energeticSongs = getMoodRecommendations('energetic').slice(0, 2);
+      if (energeticSongs.length > 0) {
+        const songText = energeticSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
+        return `For energy and workouts, try ${songText}! Perfect for getting pumped up.`;
+      }
+    }
+    
+    if (message.includes('romantic') || message.includes('love')) {
+      const romanticSongs = getMoodRecommendations('romantic').slice(0, 2);
+      if (romanticSongs.length > 0) {
+        const songText = romanticSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
+        return `For romantic moments, I recommend ${songText}. Perfect for setting the mood!`;
+      }
+    }
+    
+    if (message.includes('relax') || message.includes('chill') || message.includes('calm')) {
+      const relaxedSongs = getMoodRecommendations('relaxed').slice(0, 2);
+      if (relaxedSongs.length > 0) {
+        const songText = relaxedSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
+        return `To relax and unwind, try ${songText}. Great for chilling out!`;
+      }
+    }
+    
+    if (message.includes('party') || message.includes('dance')) {
+      const partySongs = getMoodRecommendations('party').slice(0, 2);
+      if (partySongs.length > 0) {
+        const songText = partySongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
+        return `For party vibes, pump up ${songText}! Let's get this party started!`;
+      }
     }
     
     if ((message.includes('play') || message.includes('listen')) && songs.length > 0) {
@@ -101,15 +215,22 @@ const Chatbot: React.FC = () => {
         }
       }
       
-      // Play random if no match
-      const randomSong = songs[Math.floor(Math.random() * songs.length)];
+      // Play a personalized recommendation
+      const recommendations = getPersonalizedRecommendations();
+      const randomSong = recommendations[Math.floor(Math.random() * recommendations.length)];
       loadSong(randomSong);
-      return `I've put on "${randomSong.title}" by ${randomSong.artist} for you. Hope you enjoy it!`;
+      return `I've put on "${randomSong.title}" by ${randomSong.artist} based on your taste. Hope you enjoy it!`;
     }
     
-    if (message.includes('sad') || message.includes('happy') || message.includes('energetic') || 
-        message.includes('romantic') || message.includes('relax') || message.includes('party')) {
-      return `Music can really help with your mood! Try checking out our mood recommendations section below. I've found that music is a great way to enhance or change your emotional state.`;
+    if (message.includes('history') || message.includes('played') || message.includes('listened')) {
+      if (currentUser && userListeningHistory.length > 0) {
+        const recentSongs = userListeningHistory.slice(0, 3).map(item => 
+          item.songs ? `"${item.songs.title}" by ${item.songs.artist}` : 'Unknown song'
+        ).join(', ');
+        return `Your recent listening history includes: ${recentSongs}. Would you like similar recommendations?`;
+      } else {
+        return `I don't see any listening history yet. Start playing some songs to get personalized recommendations!`;
+      }
     }
     
     if (message.includes('how') && message.includes('work')) {
@@ -122,11 +243,11 @@ const Chatbot: React.FC = () => {
     
     // Default responses
     const defaultResponses = [
-      "I'm here to help you discover music and connect with others who share your taste. What would you like to know?",
-      "You can ask me to recommend songs, explain how the app works, or help find music for your current mood.",
+      "I'm here to help you discover music and connect with others who share your taste. Try asking me for mood-based recommendations!",
+      "You can ask me to recommend songs based on your mood (happy, sad, energetic, romantic, relaxed, party) or your listening history.",
       "Music brings people together! Try listening to some songs and we'll match you with others who share your taste.",
-      "Need music for a specific mood? You can explore our mood-based recommendations in the main section.",
-      "Remember, the more music you listen to, the better your chances of finding a music soulmate!"
+      "Want personalized recommendations? Tell me your mood or ask about your listening history!",
+      "I can suggest songs for any mood - just tell me how you're feeling or what you want to listen to!"
     ];
     
     return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
@@ -145,7 +266,7 @@ const Chatbot: React.FC = () => {
         <PopoverTrigger asChild>
           <Button 
             className="h-12 w-12 rounded-full bg-dhun-purple text-white shadow-lg hover:bg-dhun-purple/90"
-            aria-label="Open chatbot"
+            aria-label="Open music assistant"
           >
             <Bot size={24} />
           </Button>
@@ -197,7 +318,7 @@ const Chatbot: React.FC = () => {
           <div className="p-3 border-t">
             <div className="flex gap-2">
               <Input
-                placeholder="Type a message..."
+                placeholder="Ask for mood-based recommendations..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyPress}

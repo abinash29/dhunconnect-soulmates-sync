@@ -21,31 +21,22 @@ const Chat: React.FC = () => {
     console.log('Chat component - Current connected users:', connectedUsers);
     console.log('Chat component - Current user ID:', currentUser?.id);
     
-    // Filter out current user from connected users
-    const filtered = connectedUsers.filter(user => 
+    // Filter out current user from connected users and apply search
+    let filtered = connectedUsers.filter(user => 
       currentUser && user.id !== currentUser.id
     );
     
+    // Apply search filter if there's a query
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
     console.log('Chat component - Filtered connected users:', filtered);
     setFilteredUsers(filtered);
-  }, [connectedUsers, currentUser]);
-  
-  useEffect(() => {
-    if (searchQuery) {
-      const searchFiltered = connectedUsers.filter(user => 
-        user.id !== currentUser?.id && (
-          user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          user.email.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
-      setFilteredUsers(searchFiltered);
-    } else {
-      const filtered = connectedUsers.filter(user => 
-        currentUser && user.id !== currentUser.id
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [searchQuery, connectedUsers, currentUser]);
+  }, [connectedUsers, currentUser, searchQuery]);
   
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -111,10 +102,13 @@ const Chat: React.FC = () => {
           {/* Connected Users (Real Matched Users Only) */}
           {filteredUsers.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-lg font-medium mb-3">Connected Users ({filteredUsers.length})</h2>
+              <h2 className="text-lg font-medium mb-3 flex items-center">
+                <Users className="w-5 h-5 mr-2" />
+                Connected Users ({filteredUsers.length})
+              </h2>
               <div className="space-y-3">
                 {filteredUsers.map(user => (
-                  <div key={user.id} className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                  <div key={user.id} className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                        onClick={() => handleUserClick(user)}>
                     <Avatar className="h-10 w-10 mr-3">
                       <AvatarImage src={user.avatar} />
@@ -124,19 +118,23 @@ const Chat: React.FC = () => {
                       <p className="font-medium truncate">{user.name}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Matched via music</p>
                     </div>
-                    <span className="text-xs text-green-500 font-medium">Connected</span>
+                    <div className="flex items-center">
+                      <span className="text-xs text-green-500 font-medium mr-2">Connected</span>
+                      <MessageSquare className="w-4 h-4 text-gray-400" />
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
           
-          {/* Debug info */}
+          {/* Debug info - only show in development */}
           {process.env.NODE_ENV === 'development' && (
             <div className="mb-4 p-4 bg-yellow-100 rounded-lg">
               <p className="text-sm">Debug - Total connected users: {connectedUsers.length}</p>
               <p className="text-sm">Debug - Filtered users: {filteredUsers.length}</p>
               <p className="text-sm">Debug - Current user: {currentUser?.name}</p>
+              <p className="text-sm">Debug - Search query: "{searchQuery}"</p>
             </div>
           )}
           
@@ -145,9 +143,14 @@ const Chat: React.FC = () => {
             <Card className="text-center">
               <CardContent className="py-8">
                 <UserIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                <h3 className="text-lg font-medium mb-2">No matches yet</h3>
+                <h3 className="text-lg font-medium mb-2">
+                  {searchQuery ? 'No users found' : 'No matches yet'}
+                </h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  Start listening to music and connect with others who share your taste! When someone listens to the same song, you'll be matched automatically.
+                  {searchQuery 
+                    ? `No connected users match "${searchQuery}". Try a different search term.`
+                    : 'Start listening to music and connect with others who share your taste! When someone listens to the same song, you\'ll be matched automatically.'
+                  }
                 </p>
                 <div className="space-y-3">
                   <Button onClick={handlePlaySong} className="w-full bg-dhun-blue hover:bg-dhun-blue/90">

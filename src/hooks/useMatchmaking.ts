@@ -41,21 +41,23 @@ export const useMatchmaking = () => {
     currentUser,
     setCurrentMatch,
     setCurrentChat,
-    setChatOpen: () => setChatOpen(true)  // Fix the TypeScript error
+    setChatOpen: (isOpen: boolean) => setChatOpen(isOpen)
   });
   
-  // Set up real-time subscriptions
+  // Set up real-time subscriptions with all required props
   const { updateActiveListenersCount } = useRealtimeSubscriptions({
     currentUser,
     setActiveListeners,
     checkForRealTimeMatch,
-    fetchMatchUserDetails
+    fetchMatchUserDetails,
+    registerConnectedUser: (user: User) => registerConnectedUser(user, currentUser?.id)
   });
   
   // Set up Supabase realtime for enhanced chat functionality
   const supabaseRealtime = useSupabaseRealtime({
-    setChatOpen: () => setChatOpen(true),  // Fix the TypeScript error here too
-    fetchMatchUserDetails
+    setChatOpen: () => setChatOpen(true),
+    fetchMatchUserDetails,
+    registerConnectedUser: (user: User) => registerConnectedUser(user, currentUser?.id)
   });
   
   // Function to force a match (for testing)
