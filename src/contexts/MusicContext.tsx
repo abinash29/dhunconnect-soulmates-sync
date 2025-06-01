@@ -90,24 +90,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
-  // Use the Supabase realtime hook with proper props - ensure we pass the callback functions
+  // Use the Supabase realtime hook with proper props
   useSupabaseRealtime({
-    setChatOpen: (isOpen: boolean) => {
-      if (isOpen && toggleChat) {
-        console.log("Opening chat from realtime notification");
-        // Force open the chat if it's not already open
-        if (!chatOpen) {
-          toggleChat();
-        }
-      }
-    },
-    setCurrentChat: (chat: any) => {
-      // Ensure we're setting the chat properly
-      if (chat) {
-        console.log("Setting current chat from Supabase realtime:", chat);
-        setCurrentChat(chat);
-      }
-    },
+    setChatOpen: toggleChat,
     fetchMatchUserDetails
   });
 

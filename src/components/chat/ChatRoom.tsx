@@ -102,7 +102,7 @@ const ChatRoom: React.FC = () => {
           id: `msg-${Date.now()}`,
           senderId: 'bot',
           receiverId: null,
-          content: `You've matched with ${currentMatch.name}! Start a conversation about your shared music taste.`,
+          content: `You've matched with ${currentMatch.name} while listening to the same song! Start a conversation about your shared music taste.`,
           timestamp: new Date(),
           isBot: true
         };
@@ -220,6 +220,7 @@ const ChatRoom: React.FC = () => {
               </Avatar>
               <div>
                 <SheetTitle className="mb-0">{currentMatch.name}</SheetTitle>
+                <p className="text-xs text-gray-500">Matched via music</p>
                 {isTyping && (
                   <span className="text-xs text-dhun-purple animate-pulse">typing...</span>
                 )}
@@ -267,7 +268,6 @@ const ChatRoom: React.FC = () => {
               </div>
             );
           })}
-          {/* Fix the type comparison error by comparing with the match's ID string */}
           {isTyping && messagesToDisplay.length > 0 && messagesToDisplay[messagesToDisplay.length - 1]?.senderId !== currentMatch.id && (
             <div className="flex justify-start">
               <div className="bg-white dark:bg-gray-800 rounded-lg p-3 max-w-[80%] shadow-sm">

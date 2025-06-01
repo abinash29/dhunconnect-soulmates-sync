@@ -26,11 +26,11 @@ export const useUserManagement = () => {
   
   // Completely disabled mock users function
   const addMockConnectedUsers = () => {
-    // This function is completely disabled
-    console.log("Mock users are completely disabled - only real matching is available");
+    // This function is completely disabled - no mock users allowed
+    console.log("Mock users are disabled - only real matched users are shown");
     toast({
       title: "Real Matches Only",
-      description: "The app is using only real user matching for a better experience.",
+      description: "Chat shows only users you've actually matched with while listening to music.",
     });
   };
 

@@ -6,14 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
 type UseSupabaseRealtimeProps = {
-  setChatOpen?: (isOpen: boolean) => void;
-  setCurrentChat?: (chat: any) => void;
+  setChatOpen?: () => void;
   fetchMatchUserDetails?: (userId: string, matchId: string, songId: string) => void;
 };
 
 export const useSupabaseRealtime = ({
   setChatOpen = () => {},
-  setCurrentChat = () => {},
   fetchMatchUserDetails = () => {}
 }: UseSupabaseRealtimeProps) => {
   const { currentUser } = useAuth();
@@ -52,7 +50,7 @@ export const useSupabaseRealtime = ({
               });
               
               // Open chat automatically
-              setChatOpen(true);
+              setChatOpen();
             }
           }
         }
@@ -81,7 +79,7 @@ export const useSupabaseRealtime = ({
               });
               
               // Open chat automatically
-              setChatOpen(true);
+              setChatOpen();
             }
           }
         }
@@ -117,7 +115,7 @@ export const useSupabaseRealtime = ({
       supabase.removeChannel(matchesChannel);
       supabase.removeChannel(messagesChannel);
     };
-  }, [currentUser, fetchMatchUserDetails, setChatOpen, setCurrentChat]);
+  }, [currentUser, fetchMatchUserDetails, setChatOpen]);
   
   // Handle incoming message
   const handleNewMessage = async (messageData: any) => {
@@ -154,7 +152,7 @@ export const useSupabaseRealtime = ({
         });
         
         // Auto-open chat window if there's a new message
-        setChatOpen(true);
+        setChatOpen();
         
         // Set the current chat to this match
         const otherUserId = matchData.user1_id === currentUser.id ? matchData.user2_id : matchData.user1_id;
@@ -162,49 +160,6 @@ export const useSupabaseRealtime = ({
       }
     } catch (error) {
       console.error('Error handling new message:', error);
-    }
-  };
-  
-  const checkIfMessageIsRelevant = async (messageData: any) => {
-    if (!currentUser) return;
-    
-    try {
-      // Fetch the match to see if the current user is part of it
-      const { data: matchData, error: matchError } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('id', messageData.match_id)
-        .single();
-      
-      if (matchError) throw matchError;
-      
-      // Check if the current user is part of this match
-      if (matchData.user1_id === currentUser.id || matchData.user2_id === currentUser.id) {
-        // Only add the message if the sender is not the current user
-        if (messageData.sender_id !== currentUser.id) {
-          setNewMessages(prev => [...prev, messageData]);
-          
-          // Get sender name
-          const { data: senderData, error: senderError } = await supabase
-            .from('profiles')
-            .select('name')
-            .eq('id', messageData.sender_id)
-            .single();
-          
-          if (!senderError && senderData) {
-            toast({
-              title: "New Message",
-              description: `${senderData.name} sent you a message`,
-              variant: "default",
-            });
-            
-            // Auto-open chat window if there's a new message
-            setChatOpen(true);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error checking if message is relevant:', error);
     }
   };
   
