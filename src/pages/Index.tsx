@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MoodType } from '@/types';
 import { Link } from 'react-router-dom';
+import { Shuffle } from 'lucide-react';
 
 const moodOptions: { label: string; value: MoodType; emoji: string }[] = [
   { label: 'Happy', value: 'happy', emoji: '😊' },
@@ -40,6 +41,15 @@ const Index: React.FC = () => {
     setCurrentMood(mood);
     const recommendations = getMoodRecommendations(mood);
     setMoodSongs(recommendations.map(song => song.id));
+  };
+
+  // Handle random song play
+  const handlePlayRandomSong = () => {
+    if (songs.length > 0) {
+      const randomIndex = Math.floor(Math.random() * songs.length);
+      const randomSong = songs[randomIndex];
+      loadSong(randomSong);
+    }
   };
 
   return (
@@ -74,6 +84,14 @@ const Index: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-3">
+                  <Button 
+                    onClick={handlePlayRandomSong} 
+                    className="bg-dhun-blue hover:bg-dhun-blue/90"
+                    disabled={songs.length === 0}
+                  >
+                    <Shuffle className="w-4 h-4 mr-2" />
+                    Listen to Random Song
+                  </Button>
                   <Link to="/profile">
                     <Button className="bg-dhun-purple hover:bg-dhun-purple/90">
                       My Profile
@@ -103,6 +121,16 @@ const Index: React.FC = () => {
           <section className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl md:text-2xl font-semibold">Featured Songs</h2>
+              {isAuthenticated && (
+                <Button 
+                  onClick={handlePlayRandomSong} 
+                  variant="outline"
+                  className="border-dhun-blue text-dhun-blue hover:bg-dhun-blue/10"
+                >
+                  <Shuffle className="w-4 h-4 mr-2" />
+                  Random Song
+                </Button>
+              )}
             </div>
             
             <div className="bg-white dark:bg-dhun-dark rounded-lg p-4 shadow-sm mb-6">

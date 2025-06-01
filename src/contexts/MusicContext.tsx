@@ -81,7 +81,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggleChat,
     matchTimer,
     setMatchTimer,
-    registerConnectedUser,
+    registerConnectedUser: registerUser,
     unregisterConnectedUser,
     addMockConnectedUsers,
     connectedUsers,
@@ -90,9 +90,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
+  // Wrapper function to pass current user ID when registering connected users
+  const registerConnectedUser = (user: User) => {
+    registerUser(user, currentUser?.id);
+  };
+  
   // Use the Supabase realtime hook with proper props including registerConnectedUser
   useSupabaseRealtime({
-    setChatOpen: toggleChat,
+    setChatOpen: () => toggleChat(),
     fetchMatchUserDetails,
     registerConnectedUser
   });
@@ -100,8 +105,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Register the current authenticated user when they log in
   useEffect(() => {
     if (currentUser) {
-      console.log('Registering connected user:', currentUser);
-      registerConnectedUser(currentUser);
+      console.log('Current user logged in:', currentUser);
       
       // Set up a unique session ID for this browser tab
       const sessionId = localStorage.getItem('sessionId') || `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;

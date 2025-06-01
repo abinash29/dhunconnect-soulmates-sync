@@ -25,7 +25,7 @@ export const useSupabaseRealtime = ({
     
     console.log('Setting up Supabase realtime subscriptions for user:', currentUser.id);
     
-    // Subscribe to real-time updates for matches where current user is involved
+    // Subscribe to ALL new matches in the matches table
     const matchesChannel = supabase
       .channel('realtime_matches')
       .on(
@@ -33,97 +33,56 @@ export const useSupabaseRealtime = ({
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'matches',
-          filter: `user1_id=eq.${currentUser.id}`
+          table: 'matches'
         },
         async (payload) => {
-          console.log('New match notification received (as user1):', payload);
+          console.log('New match notification received:', payload);
           if (payload.new) {
-            setNewMatches(prev => [...prev, payload.new]);
             const newData = payload.new as any;
             
-            // Fetch the other user's details and add to connected users
-            try {
-              const { data: otherUser, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', newData.user2_id)
-                .single();
-                
-              if (!error && otherUser) {
-                const userObj: User = {
-                  id: otherUser.id,
-                  name: otherUser.name,
-                  email: otherUser.email,
-                  avatar: otherUser.avatar
-                };
-                
-                // Register the matched user as connected
-                registerConnectedUser(userObj);
-                
-                // Fetch match details and open chat
-                fetchMatchUserDetails(newData.user2_id, newData.id, newData.song_id);
-                
-                toast({
-                  title: "New Music Match!",
-                  description: `You've matched with ${otherUser.name}!`,
-                  variant: "default",
-                });
-                
-                setChatOpen();
-              }
-            } catch (error) {
-              console.error('Error fetching matched user details:', error);
-            }
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'matches',
-          filter: `user2_id=eq.${currentUser.id}`
-        },
-        async (payload) => {
-          console.log('New match notification received (as user2):', payload);
-          if (payload.new) {
-            setNewMatches(prev => [...prev, payload.new]);
-            const newData = payload.new as any;
+            // Check if current user is involved in this match
+            const isCurrentUserInMatch = newData.user1_id === currentUser.id || newData.user2_id === currentUser.id;
             
-            // Fetch the other user's details and add to connected users
-            try {
-              const { data: otherUser, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', newData.user1_id)
-                .single();
-                
-              if (!error && otherUser) {
-                const userObj: User = {
-                  id: otherUser.id,
-                  name: otherUser.name,
-                  email: otherUser.email,
-                  avatar: otherUser.avatar
-                };
-                
-                // Register the matched user as connected
-                registerConnectedUser(userObj);
-                
-                // Fetch match details and open chat
-                fetchMatchUserDetails(newData.user1_id, newData.id, newData.song_id);
-                
-                toast({
-                  title: "New Music Match!",
-                  description: `You've matched with ${otherUser.name}!`,
-                  variant: "default",
-                });
-                
-                setChatOpen();
+            if (isCurrentUserInMatch) {
+              console.log('Current user is part of this match');
+              setNewMatches(prev => [...prev, payload.new]);
+              
+              // Determine the other user ID
+              const otherUserId = newData.user1_id === currentUser.id ? newData.user2_id : newData.user1_id;
+              
+              // Fetch the other user's details and add to connected users
+              try {
+                const { data: otherUser, error } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', otherUserId)
+                  .single();
+                  
+                if (!error && otherUser) {
+                  const userObj: User = {
+                    id: otherUser.id,
+                    name: otherUser.name,
+                    email: otherUser.email,
+                    avatar: otherUser.avatar
+                  };
+                  
+                  // Register the matched user as connected
+                  registerConnectedUser(userObj);
+                  
+                  // Fetch match details and open chat
+                  fetchMatchUserDetails(otherUserId, newData.id, newData.song_id);
+                  
+                  toast({
+                    title: "New Music Match!",
+                    description: `You've matched with ${otherUser.name}!`,
+                    variant: "default",
+                  });
+                  
+                  setChatOpen();
+                }
+              } catch (error) {
+                console.error('Error fetching matched user details:', error);
               }
-            } catch (error) {
-              console.error('Error fetching matched user details:', error);
             }
           }
         }

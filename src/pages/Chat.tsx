@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { MessageSquare, Search, User, Users } from 'lucide-react';
+import { User } from '@/types';
+import { MessageSquare, Search, User as UserIcon, Users } from 'lucide-react';
 import Header from '@/components/common/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -56,6 +57,11 @@ const Chat: React.FC = () => {
     }
   };
 
+  const handleUserClick = (user: User) => {
+    // Open chat with this specific user
+    toggleChat();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
       <Header />
@@ -93,7 +99,7 @@ const Chat: React.FC = () => {
               <div className="space-y-3">
                 {filteredUsers.map(user => (
                   <div key={user.id} className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                       onClick={() => toggleChat()}>
+                       onClick={() => handleUserClick(user)}>
                     <Avatar className="h-10 w-10 mr-3">
                       <AvatarImage src={user.avatar} />
                       <AvatarFallback>{user.name[0]}</AvatarFallback>
@@ -113,7 +119,7 @@ const Chat: React.FC = () => {
           {filteredUsers.length === 0 && (
             <Card className="text-center">
               <CardContent className="py-8">
-                <User className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                <UserIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                 <h3 className="text-lg font-medium mb-2">No matches yet</h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   Start listening to music and connect with others who share your taste! When someone listens to the same song, you'll be matched automatically.

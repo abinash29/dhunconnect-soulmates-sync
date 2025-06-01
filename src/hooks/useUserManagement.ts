@@ -6,8 +6,13 @@ import { toast } from '@/hooks/use-toast';
 export const useUserManagement = () => {
   const [connectedUsers, setConnectedUsers] = useState<User[]>([]);
 
-  // Register a new connected user (only real matched users)
-  const registerConnectedUser = (user: User) => {
+  // Register a new connected user (only real matched users, excluding current user)
+  const registerConnectedUser = (user: User, currentUserId?: string) => {
+    // Don't add the current user to their own connected users list
+    if (currentUserId && user.id === currentUserId) {
+      return;
+    }
+    
     setConnectedUsers(prev => {
       // Check if user is already registered
       if (prev.some(existingUser => existingUser.id === user.id)) {
