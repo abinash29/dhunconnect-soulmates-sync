@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';

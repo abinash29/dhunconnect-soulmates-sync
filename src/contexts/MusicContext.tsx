@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
@@ -36,6 +37,11 @@ interface MusicContextType {
   testMatchmaking: (song: Song) => void;
   addMockConnectedUsers: () => void;
   connectedUsers: User[];
+  setChatOpen: (isOpen: boolean) => void;
+  setCurrentChat: (chat: Chat | null) => void;
+  registerConnectedUser: (user: User) => void;
+  unregisterConnectedUser: (userId: string) => void;
+  fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => Promise<void>;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -56,6 +62,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [matchTimer, setMatchTimer] = useState<NodeJS.Timeout | null>(null);
 
   const {
     isPlaying,
@@ -74,26 +81,25 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     chatOpen,
     currentChat,
     activeListeners,
+    setActiveListeners,
     findMatch,
     forceMatch,
     sendMessage,
     toggleChat,
     connectedUsers,
-    fetchMatchUserDetails
+    fetchMatchUserDetails,
+    registerConnectedUser,
+    unregisterConnectedUser,
+    addMockConnectedUsers
   } = useMatchmaking();
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
-  // Wrapper function to pass current user ID when registering connected users
-  const registerConnectedUser = (user: User) => {
-    registerUser(user, currentUser?.id);
-  };
-  
-  // Use the Supabase realtime hook with proper props including registerConnectedUser
+  // Use the Supabase realtime hook with proper props
   useSupabaseRealtime({
-    setChatOpen: () => toggleChat(),
+    setChatOpen: (isOpen: boolean) => toggleChat(),
     fetchMatchUserDetails,
-    registerConnectedUser
+    registerConnectedUser: (user: User) => registerConnectedUser(user)
   });
 
   // Register the current authenticated user when they log in
@@ -244,8 +250,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setChatOpen = (isOpen: boolean) => {
-    // This will be handled by the useMatchmaking hook
-    if (!isOpen) {
+    if (isOpen) {
+      toggleChat();
+    } else {
       toggleChat();
     }
   };
@@ -285,6 +292,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     connectedUsers,
     setChatOpen,
     setCurrentChat,
+    registerConnectedUser,
+    unregisterConnectedUser,
+    fetchMatchUserDetails,
   };
 
   return (
