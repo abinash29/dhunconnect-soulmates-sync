@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
@@ -95,9 +94,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
-  // Use the Supabase realtime hook with proper props
+  // Use the Supabase realtime hook with proper props - fix the function signature
   useSupabaseRealtime({
-    setChatOpen: (isOpen: boolean) => toggleChat(),
+    setChatOpen: () => {
+      if (!chatOpen) {
+        toggleChat();
+      }
+    },
     fetchMatchUserDetails,
     registerConnectedUser: (user: User) => registerConnectedUser(user)
   });
@@ -250,9 +253,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setChatOpen = (isOpen: boolean) => {
-    if (isOpen) {
+    if (isOpen && !chatOpen) {
       toggleChat();
-    } else {
+    } else if (!isOpen && chatOpen) {
       toggleChat();
     }
   };

@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import ChatRoom from '@/components/chat/ChatRoom';
+import { supabase } from '@/integrations/supabase/client';
 
 const Chat: React.FC = () => {
   const { 
@@ -28,6 +29,80 @@ const Chat: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [showChatList, setShowChatList] = useState(true);
+  const [loadingMatches, setLoadingMatches] = useState(true);
+  
+  // Load matched users when component mounts
+  useEffect(() => {
+    const loadMatchedUsers = async () => {
+      if (!currentUser) return;
+      
+      setLoadingMatches(true);
+      console.log('Loading matched users for current user:', currentUser.id);
+      
+      try {
+        // Fetch all matches where the current user is involved
+        const { data: matches, error: matchError } = await supabase
+          .from('matches')
+          .select(`
+            id,
+            user1_id,
+            user2_id,
+            song_id,
+            created_at
+          `)
+          .or(`user1_id.eq.${currentUser.id},user2_id.eq.${currentUser.id}`);
+        
+        if (matchError) {
+          console.error('Error fetching matches:', matchError);
+          return;
+        }
+        
+        console.log('Found matches:', matches);
+        
+        if (matches && matches.length > 0) {
+          // Get the other user IDs from matches
+          const otherUserIds = matches.map(match => 
+            match.user1_id === currentUser.id ? match.user2_id : match.user1_id
+          );
+          
+          console.log('Other user IDs:', otherUserIds);
+          
+          // Fetch profiles for these users
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', otherUserIds);
+          
+          if (profileError) {
+            console.error('Error fetching profiles:', profileError);
+            return;
+          }
+          
+          console.log('Found matched user profiles:', profiles);
+          
+          if (profiles) {
+            // Update connected users with matched profiles
+            profiles.forEach(profile => {
+              const userObj: User = {
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                avatar: profile.avatar
+              };
+              // Add to connected users if not already present
+              console.log('Adding matched user to connected users:', userObj.name);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading matched users:', error);
+      } finally {
+        setLoadingMatches(false);
+      }
+    };
+    
+    loadMatchedUsers();
+  }, [currentUser]);
   
   // Filter connected users and log for debugging
   useEffect(() => {
@@ -154,8 +229,15 @@ const Chat: React.FC = () => {
             />
           </div>
 
+          {/* Loading state */}
+          {loadingMatches && (
+            <div className="text-center py-8">
+              <p>Loading your matches...</p>
+            </div>
+          )}
+
           {/* Connected Users (Real Matched Users Only) */}
-          {filteredUsers.length > 0 && (
+          {!loadingMatches && filteredUsers.length > 0 && (
             <div className="mb-6">
               <h2 className="text-lg font-medium mb-3 flex items-center">
                 <Users className="w-5 h-5 mr-2" />
@@ -197,11 +279,12 @@ const Chat: React.FC = () => {
               <p className="text-sm">Debug - Filtered users: {filteredUsers.length}</p>
               <p className="text-sm">Debug - Current user: {currentUser?.name}</p>
               <p className="text-sm">Debug - Search query: "{searchQuery}"</p>
+              <p className="text-sm">Debug - Loading matches: {loadingMatches}</p>
             </div>
           )}
           
           {/* No matches state */}
-          {filteredUsers.length === 0 && (
+          {!loadingMatches && filteredUsers.length === 0 && (
             <Card className="text-center">
               <CardContent className="py-8">
                 <UserIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
