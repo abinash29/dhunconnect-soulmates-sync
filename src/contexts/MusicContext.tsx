@@ -74,16 +74,10 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     chatOpen,
     currentChat,
     activeListeners,
-    setActiveListeners,
     findMatch,
     forceMatch,
     sendMessage,
     toggleChat,
-    matchTimer,
-    setMatchTimer,
-    registerConnectedUser: registerUser,
-    unregisterConnectedUser,
-    addMockConnectedUsers,
     connectedUsers,
     fetchMatchUserDetails
   } = useMatchmaking();
@@ -249,7 +243,19 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     findMatch(song);
   };
 
-  const value = {
+  const setChatOpen = (isOpen: boolean) => {
+    // This will be handled by the useMatchmaking hook
+    if (!isOpen) {
+      toggleChat();
+    }
+  };
+
+  const setCurrentChat = (chat: Chat | null) => {
+    // This will be handled through the useMatchmaking hook
+    console.log('Setting current chat:', chat);
+  };
+
+  const value: MusicContextType = {
     songs,
     currentSong,
     isPlaying,
@@ -276,7 +282,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     activeListeners,
     testMatchmaking,
     addMockConnectedUsers,
-    connectedUsers
+    connectedUsers,
+    setChatOpen,
+    setCurrentChat,
   };
 
   return (

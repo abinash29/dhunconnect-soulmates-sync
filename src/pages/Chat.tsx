@@ -3,18 +3,31 @@ import React, { useState, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { User } from '@/types';
-import { MessageSquare, Search, User as UserIcon, Users } from 'lucide-react';
+import { MessageSquare, Search, User as UserIcon, Users, ArrowLeft } from 'lucide-react';
 import Header from '@/components/common/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import ChatRoom from '@/components/chat/ChatRoom';
 
 const Chat: React.FC = () => {
-  const { toggleChat, songs, loadSong, currentSong, testMatchmaking, connectedUsers } = useMusic();
+  const { 
+    toggleChat, 
+    songs, 
+    loadSong, 
+    currentSong, 
+    testMatchmaking, 
+    connectedUsers,
+    chatOpen,
+    currentChat,
+    setCurrentChat,
+    setChatOpen
+  } = useMusic();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [showChatList, setShowChatList] = useState(true);
   
   // Filter connected users and log for debugging
   useEffect(() => {
@@ -37,6 +50,13 @@ const Chat: React.FC = () => {
     console.log('Chat component - Filtered connected users:', filtered);
     setFilteredUsers(filtered);
   }, [connectedUsers, currentUser, searchQuery]);
+
+  // Show chat list when chat is closed
+  useEffect(() => {
+    if (!chatOpen) {
+      setShowChatList(true);
+    }
+  }, [chatOpen]);
   
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -64,10 +84,49 @@ const Chat: React.FC = () => {
   };
 
   const handleUserClick = (user: User) => {
-    console.log('Clicked on user:', user.name);
-    // Open chat with this specific user
-    toggleChat();
+    console.log('Opening chat with user:', user.name);
+    
+    // Create a chat session for this user
+    const newChat = {
+      id: `chat-${user.id}`,
+      matchId: `match-${currentUser?.id}-${user.id}`,
+      users: [currentUser?.id || '', user.id],
+      messages: [],
+      createdAt: new Date(),
+    };
+    
+    setCurrentChat(newChat);
+    setChatOpen(true);
+    setShowChatList(false);
   };
+
+  const handleBackToList = () => {
+    setShowChatList(true);
+    setChatOpen(false);
+    setCurrentChat(null);
+  };
+
+  // If chat is open and we're not showing the list, show the chat room
+  if (chatOpen && !showChatList && currentChat) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
+        <Header />
+        <div className="container py-4">
+          <div className="flex items-center gap-4 mb-4">
+            <Button 
+              variant="ghost" 
+              onClick={handleBackToList}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Messages
+            </Button>
+          </div>
+        </div>
+        <ChatRoom />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
@@ -78,10 +137,6 @@ const Chat: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold">Your Messages</h1>
             <div className="flex gap-2">
-              <Button onClick={() => toggleChat()} className="bg-dhun-purple hover:bg-dhun-purple/90">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                New Chat
-              </Button>
               <Button onClick={handleTestMatch} className="bg-dhun-orange hover:bg-dhun-orange/90">
                 Test Match
               </Button>
@@ -108,19 +163,26 @@ const Chat: React.FC = () => {
               </h2>
               <div className="space-y-3">
                 {filteredUsers.map(user => (
-                  <div key={user.id} className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                       onClick={() => handleUserClick(user)}>
-                    <Avatar className="h-10 w-10 mr-3">
+                  <div 
+                    key={user.id} 
+                    className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                    onClick={() => handleUserClick(user)}
+                  >
+                    <Avatar className="h-12 w-12 mr-3">
                       <AvatarImage src={user.avatar} />
-                      <AvatarFallback>{user.name[0]}</AvatarFallback>
+                      <AvatarFallback className="bg-dhun-orange text-white">
+                        {user.name[0]}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{user.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Matched via music</p>
+                      <p className="font-medium truncate text-lg">{user.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                        Matched via music • Click to chat
+                      </p>
                     </div>
                     <div className="flex items-center">
                       <span className="text-xs text-green-500 font-medium mr-2">Connected</span>
-                      <MessageSquare className="w-4 h-4 text-gray-400" />
+                      <MessageSquare className="w-5 h-5 text-dhun-purple" />
                     </div>
                   </div>
                 ))}
@@ -155,10 +217,6 @@ const Chat: React.FC = () => {
                 <div className="space-y-3">
                   <Button onClick={handlePlaySong} className="w-full bg-dhun-blue hover:bg-dhun-blue/90">
                     Listen to a Random Song
-                  </Button>
-                  <Button onClick={() => toggleChat()} className="w-full bg-dhun-purple hover:bg-dhun-purple/90">
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Open Chat
                   </Button>
                   <Button onClick={handleTestMatch} className="w-full bg-dhun-orange hover:bg-dhun-orange/90">
                     Test Matchmaking

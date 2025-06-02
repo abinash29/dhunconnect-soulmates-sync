@@ -6,25 +6,33 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, User, X, Smile, PaperclipIcon } from 'lucide-react';
+import { Send, User, X, Smile, PaperclipIcon, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 const ChatRoom: React.FC = () => {
-  const { currentChat, currentMatch, chatOpen, sendMessage, toggleChat } = useMusic();
+  const { 
+    currentChat, 
+    currentMatch, 
+    chatOpen, 
+    sendMessage, 
+    toggleChat,
+    setChatOpen,
+    setCurrentChat 
+  } = useMusic();
   const { currentUser } = useAuth();
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
 
-  // Force chat to open if we have a match and current chat - CRITICAL FIX
+  // Force chat to open if we have a match and current chat
   useEffect(() => {
     if (currentMatch && currentChat && !chatOpen) {
       console.log("Auto-opening chat due to new match");
-      toggleChat(); // Open the chat
+      setChatOpen(true);
     }
-  }, [currentMatch, currentChat, chatOpen, toggleChat]);
+  }, [currentMatch, currentChat, chatOpen, setChatOpen]);
 
   // Fetch messages for the current chat
   useEffect(() => {
@@ -60,7 +68,7 @@ const ChatRoom: React.FC = () => {
               // If we receive a message and the chat isn't open, open it
               if (!chatOpen) {
                 console.log("Opening chat due to new message");
-                toggleChat();
+                setChatOpen(true);
               }
             }
           }
@@ -71,7 +79,7 @@ const ChatRoom: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [currentChat, currentUser, chatOpen, toggleChat]);
+  }, [currentChat, currentUser, chatOpen, setChatOpen]);
 
   // Fetch initial messages for the chat
   const fetchMessages = async (matchId: string) => {
@@ -198,6 +206,11 @@ const ChatRoom: React.FC = () => {
     });
   };
 
+  const handleCloseChat = () => {
+    setChatOpen(false);
+    setCurrentChat(null);
+  };
+
   if (!currentMatch || !currentUser) return null;
 
   // Get messages to display - either from our local state (which gets real-time updates)
@@ -207,7 +220,7 @@ const ChatRoom: React.FC = () => {
     (currentChat?.messages || []);
 
   return (
-    <Sheet open={chatOpen} onOpenChange={toggleChat}>
+    <Sheet open={chatOpen} onOpenChange={setChatOpen}>
       <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full">
         <SheetHeader className="p-4 border-b">
           <div className="flex items-center justify-between">
@@ -226,9 +239,14 @@ const ChatRoom: React.FC = () => {
                 )}
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={toggleChat}>
-              <X size={18} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleCloseChat}>
+                <ArrowLeft size={18} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCloseChat}>
+                <X size={18} />
+              </Button>
+            </div>
           </div>
         </SheetHeader>
 
