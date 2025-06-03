@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -275,14 +274,23 @@ const Chat: React.FC = () => {
         createdAt: new Date(),
       };
       
-      console.log('Setting current chat:', newChat);
-      console.log('Opening chat with user:', user);
+      console.log('Setting current chat and opening chatbox:', newChat);
       
-      // Set the chat and open it
+      // Set the current match in context (this is crucial!)
+      // We need to set the current match so ChatRoom knows who we're chatting with
+      const matchContext = {
+        ...user,
+        matchId: match.id
+      };
+      
+      // Set both the chat and the match
       setCurrentChat(newChat);
+      
+      // Force open the chat
+      console.log('Force opening chat...');
       setChatOpen(true);
       
-      console.log('Chat should now be open. ChatOpen:', true);
+      console.log('Chat should now be open. ChatOpen should be true');
     } catch (error) {
       console.error('Error opening chat:', error);
     }

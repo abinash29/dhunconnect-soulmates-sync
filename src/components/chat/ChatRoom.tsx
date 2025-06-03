@@ -227,12 +227,6 @@ const ChatRoom: React.FC = () => {
     }
   };
 
-  const handleCloseChat = () => {
-    console.log('Close button clicked');
-    setChatOpen(false);
-    setCurrentChat(null);
-  };
-
   if (!currentMatch || !currentUser) {
     console.log('ChatRoom: Missing currentMatch or currentUser', { currentMatch, currentUser });
     return null;
@@ -254,13 +248,16 @@ const ChatRoom: React.FC = () => {
   return (
     <Sheet open={chatOpen} onOpenChange={(open) => {
       if (!open) {
-        handleCloseChat();
+        handleBackButton();
       }
     }}>
       <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full">
         <SheetHeader className="p-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={handleBackButton}>
+                <ArrowLeft size={18} />
+              </Button>
               <Avatar>
                 <AvatarImage src={currentMatch.avatar} />
                 <AvatarFallback className="bg-dhun-orange text-white">
@@ -274,14 +271,6 @@ const ChatRoom: React.FC = () => {
                   <span className="text-xs text-dhun-purple animate-pulse">typing...</span>
                 )}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleBackButton}>
-                <ArrowLeft size={18} />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleCloseChat}>
-                <X size={18} />
-              </Button>
             </div>
           </div>
         </SheetHeader>
