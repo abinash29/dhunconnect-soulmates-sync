@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, User, X, Smile, PaperclipIcon, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const ChatRoom: React.FC = () => {
   const { 
@@ -20,6 +22,8 @@ const ChatRoom: React.FC = () => {
     setCurrentChat 
   } = useMusic();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -205,6 +209,21 @@ const ChatRoom: React.FC = () => {
     });
   };
 
+  const handleBackButton = () => {
+    // Close the chat
+    setChatOpen(false);
+    setCurrentChat(null);
+    
+    // Navigate based on current location
+    if (location.pathname === '/chat') {
+      // If we're on the chat page, just close the chat overlay but stay on the page
+      // The chat page will handle showing the user list again
+    } else {
+      // If we're on any other page (like home), navigate back to home
+      navigate('/');
+    }
+  };
+
   const handleCloseChat = () => {
     setChatOpen(false);
     setCurrentChat(null);
@@ -239,7 +258,7 @@ const ChatRoom: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleCloseChat}>
+              <Button variant="ghost" size="sm" onClick={handleBackButton}>
                 <ArrowLeft size={18} />
               </Button>
               <Button variant="ghost" size="sm" onClick={handleCloseChat}>

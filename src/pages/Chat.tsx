@@ -28,8 +28,8 @@ const Chat: React.FC = () => {
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [showChatList, setShowChatList] = useState(true);
   const [loadingMatches, setLoadingMatches] = useState(true);
+  const [matchedUsers, setMatchedUsers] = useState<User[]>([]);
   
   // Load matched users when component mounts
   useEffect(() => {
@@ -81,17 +81,16 @@ const Chat: React.FC = () => {
           console.log('Found matched user profiles:', profiles);
           
           if (profiles) {
-            // Update connected users with matched profiles
-            profiles.forEach(profile => {
-              const userObj: User = {
-                id: profile.id,
-                name: profile.name,
-                email: profile.email,
-                avatar: profile.avatar
-              };
-              // Add to connected users if not already present
-              console.log('Adding matched user to connected users:', userObj.name);
-            });
+            // Transform profiles to User objects
+            const users: User[] = profiles.map(profile => ({
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              avatar: profile.avatar
+            }));
+            
+            setMatchedUsers(users);
+            console.log('Set matched users:', users);
           }
         }
       } catch (error) {
@@ -103,16 +102,108 @@ const Chat: React.FC = () => {
     
     loadMatchedUsers();
   }, [currentUser]);
-  
-  // Filter connected users and log for debugging
+
+  // Real-time subscription for new matches
   useEffect(() => {
-    console.log('Chat component - Current connected users:', connectedUsers);
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('new_matches_subscription')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'matches',
+          filter: `user1_id=eq.${currentUser.id}`
+        },
+        async (payload) => {
+          console.log('New match detected for user1:', payload);
+          if (payload.new) {
+            const matchData = payload.new as any;
+            // Fetch the other user's profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', matchData.user2_id)
+              .single();
+            
+            if (profile) {
+              const newUser: User = {
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                avatar: profile.avatar
+              };
+              
+              setMatchedUsers(prev => {
+                const exists = prev.find(u => u.id === newUser.id);
+                if (!exists) {
+                  return [...prev, newUser];
+                }
+                return prev;
+              });
+              
+              // Automatically open chat with the new match
+              handleUserClick(newUser);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'matches',
+          filter: `user2_id=eq.${currentUser.id}`
+        },
+        async (payload) => {
+          console.log('New match detected for user2:', payload);
+          if (payload.new) {
+            const matchData = payload.new as any;
+            // Fetch the other user's profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', matchData.user1_id)
+              .single();
+            
+            if (profile) {
+              const newUser: User = {
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                avatar: profile.avatar
+              };
+              
+              setMatchedUsers(prev => {
+                const exists = prev.find(u => u.id === newUser.id);
+                if (!exists) {
+                  return [...prev, newUser];
+                }
+                return prev;
+              });
+              
+              // Automatically open chat with the new match
+              handleUserClick(newUser);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
+  
+  // Filter matched users based on search query
+  useEffect(() => {
+    console.log('Chat component - Current matched users:', matchedUsers);
     console.log('Chat component - Current user ID:', currentUser?.id);
     
-    // Filter out current user from connected users and apply search
-    let filtered = connectedUsers.filter(user => 
-      currentUser && user.id !== currentUser.id
-    );
+    let filtered = matchedUsers;
     
     // Apply search filter if there's a query
     if (searchQuery.trim()) {
@@ -122,16 +213,9 @@ const Chat: React.FC = () => {
       );
     }
     
-    console.log('Chat component - Filtered connected users:', filtered);
+    console.log('Chat component - Filtered matched users:', filtered);
     setFilteredUsers(filtered);
-  }, [connectedUsers, currentUser, searchQuery]);
-
-  // Show chat list when chat is closed
-  useEffect(() => {
-    if (!chatOpen) {
-      setShowChatList(true);
-    }
-  }, [chatOpen]);
+  }, [matchedUsers, searchQuery]);
   
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -158,46 +242,43 @@ const Chat: React.FC = () => {
     }
   };
 
-  const handleUserClick = (user: User) => {
+  const handleUserClick = async (user: User) => {
     console.log('Opening chat with user:', user.name);
     
-    // Create a chat session for this user
-    const newChat = {
-      id: `chat-${user.id}`,
-      matchId: `match-${currentUser?.id}-${user.id}`,
-      users: [currentUser?.id || '', user.id],
-      messages: [],
-      createdAt: new Date(),
-    };
-    
-    setCurrentChat(newChat);
-    setChatOpen(true);
-    setShowChatList(false);
+    try {
+      // Find the match between current user and selected user
+      const { data: match, error } = await supabase
+        .from('matches')
+        .select('*')
+        .or(`and(user1_id.eq.${currentUser?.id},user2_id.eq.${user.id}),and(user1_id.eq.${user.id},user2_id.eq.${currentUser?.id})`)
+        .single();
+      
+      if (error) {
+        console.error('Error finding match:', error);
+        return;
+      }
+      
+      // Create a chat session for this user using the actual match ID
+      const newChat = {
+        id: match.id,
+        matchId: match.id,
+        users: [currentUser?.id || '', user.id],
+        messages: [],
+        createdAt: new Date(),
+      };
+      
+      setCurrentChat(newChat);
+      setChatOpen(true);
+    } catch (error) {
+      console.error('Error opening chat:', error);
+    }
   };
 
-  const handleBackToList = () => {
-    setShowChatList(true);
-    setChatOpen(false);
-    setCurrentChat(null);
-  };
-
-  // If chat is open and we're not showing the list, show the chat room
-  if (chatOpen && !showChatList && currentChat) {
+  // If chat is open, show the chat room
+  if (chatOpen && currentChat) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
         <Header />
-        <div className="container py-4">
-          <div className="flex items-center gap-4 mb-4">
-            <Button 
-              variant="ghost" 
-              onClick={handleBackToList}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Messages
-            </Button>
-          </div>
-        </div>
         <ChatRoom />
       </div>
     );
@@ -236,12 +317,12 @@ const Chat: React.FC = () => {
             </div>
           )}
 
-          {/* Connected Users (Real Matched Users Only) */}
+          {/* Matched Users */}
           {!loadingMatches && filteredUsers.length > 0 && (
             <div className="mb-6">
               <h2 className="text-lg font-medium mb-3 flex items-center">
                 <Users className="w-5 h-5 mr-2" />
-                Connected Users ({filteredUsers.length})
+                Matched Users ({filteredUsers.length})
               </h2>
               <div className="space-y-3">
                 {filteredUsers.map(user => (
@@ -275,7 +356,7 @@ const Chat: React.FC = () => {
           {/* Debug info - only show in development */}
           {process.env.NODE_ENV === 'development' && (
             <div className="mb-4 p-4 bg-yellow-100 rounded-lg">
-              <p className="text-sm">Debug - Total connected users: {connectedUsers.length}</p>
+              <p className="text-sm">Debug - Total matched users: {matchedUsers.length}</p>
               <p className="text-sm">Debug - Filtered users: {filteredUsers.length}</p>
               <p className="text-sm">Debug - Current user: {currentUser?.name}</p>
               <p className="text-sm">Debug - Search query: "{searchQuery}"</p>
@@ -293,7 +374,7 @@ const Chat: React.FC = () => {
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   {searchQuery 
-                    ? `No connected users match "${searchQuery}". Try a different search term.`
+                    ? `No matched users match "${searchQuery}". Try a different search term.`
                     : 'Start listening to music and connect with others who share your taste! When someone listens to the same song, you\'ll be matched automatically.'
                   }
                 </p>

@@ -94,7 +94,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
-  // Use the Supabase realtime hook with proper props - fix the function signature
+  // Use the Supabase realtime hook with proper props - fixed function signature
   useSupabaseRealtime({
     setChatOpen: () => {
       if (!chatOpen) {
