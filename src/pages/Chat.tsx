@@ -23,7 +23,8 @@ const Chat: React.FC = () => {
     chatOpen,
     currentChat,
     setCurrentChat,
-    setChatOpen
+    setChatOpen,
+    currentMatch
   } = useMusic();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -245,12 +246,17 @@ const Chat: React.FC = () => {
   const handleUserClick = async (user: User) => {
     console.log('Opening chat with user:', user.name);
     
+    if (!currentUser) {
+      console.error('No current user available');
+      return;
+    }
+    
     try {
       // Find the match between current user and selected user
       const { data: match, error } = await supabase
         .from('matches')
         .select('*')
-        .or(`and(user1_id.eq.${currentUser?.id},user2_id.eq.${user.id}),and(user1_id.eq.${user.id},user2_id.eq.${currentUser?.id})`)
+        .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${user.id}),and(user1_id.eq.${user.id},user2_id.eq.${currentUser.id})`)
         .single();
       
       if (error) {
@@ -258,23 +264,31 @@ const Chat: React.FC = () => {
         return;
       }
       
+      console.log('Found match:', match);
+      
       // Create a chat session for this user using the actual match ID
       const newChat = {
         id: match.id,
         matchId: match.id,
-        users: [currentUser?.id || '', user.id],
+        users: [currentUser.id, user.id],
         messages: [],
         createdAt: new Date(),
       };
       
+      console.log('Setting current chat:', newChat);
+      console.log('Opening chat with user:', user);
+      
+      // Set the chat and open it
       setCurrentChat(newChat);
       setChatOpen(true);
+      
+      console.log('Chat should now be open. ChatOpen:', true);
     } catch (error) {
       console.error('Error opening chat:', error);
     }
   };
 
-  // If chat is open, show the chat room
+  // Show chat room overlay if chat is open
   if (chatOpen && currentChat) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
@@ -361,6 +375,8 @@ const Chat: React.FC = () => {
               <p className="text-sm">Debug - Current user: {currentUser?.name}</p>
               <p className="text-sm">Debug - Search query: "{searchQuery}"</p>
               <p className="text-sm">Debug - Loading matches: {loadingMatches}</p>
+              <p className="text-sm">Debug - Chat open: {chatOpen}</p>
+              <p className="text-sm">Debug - Current chat: {currentChat ? 'Yes' : 'No'}</p>
             </div>
           )}
           

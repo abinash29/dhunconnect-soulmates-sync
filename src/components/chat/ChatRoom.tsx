@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -210,26 +209,34 @@ const ChatRoom: React.FC = () => {
   };
 
   const handleBackButton = () => {
-    // Close the chat
+    console.log('Back button clicked, current location:', location.pathname);
+    
+    // Close the chat first
     setChatOpen(false);
     setCurrentChat(null);
     
     // Navigate based on current location
     if (location.pathname === '/chat') {
-      // If we're on the chat page, just close the chat overlay but stay on the page
-      // The chat page will handle showing the user list again
+      // If we're on the chat page, we don't need to navigate anywhere
+      // The chat overlay will close and show the chat list again
+      console.log('Staying on chat page, just closing chat overlay');
     } else {
       // If we're on any other page (like home), navigate back to home
+      console.log('Navigating back to home');
       navigate('/');
     }
   };
 
   const handleCloseChat = () => {
+    console.log('Close button clicked');
     setChatOpen(false);
     setCurrentChat(null);
   };
 
-  if (!currentMatch || !currentUser) return null;
+  if (!currentMatch || !currentUser) {
+    console.log('ChatRoom: Missing currentMatch or currentUser', { currentMatch, currentUser });
+    return null;
+  }
 
   // Get messages to display - either from our local state (which gets real-time updates)
   // or fall back to the currentChat.messages if needed
@@ -237,8 +244,19 @@ const ChatRoom: React.FC = () => {
     chatMessages : 
     (currentChat?.messages || []);
 
+  console.log('ChatRoom rendering with:', { 
+    chatOpen, 
+    currentMatch: currentMatch.name, 
+    messagesCount: messagesToDisplay.length,
+    currentPath: location.pathname 
+  });
+
   return (
-    <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+    <Sheet open={chatOpen} onOpenChange={(open) => {
+      if (!open) {
+        handleCloseChat();
+      }
+    }}>
       <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full">
         <SheetHeader className="p-4 border-b">
           <div className="flex items-center justify-between">
