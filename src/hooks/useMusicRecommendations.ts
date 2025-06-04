@@ -1,11 +1,55 @@
 
 import { Song, MoodType } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useMusicRecommendations = (songs: Song[]) => {
-  const getMoodRecommendations = (mood: MoodType): Song[] => {
+  const getMoodRecommendations = async (mood: MoodType): Promise<Song[]> => {
+    try {
+      console.log(`Getting recommendations for mood: ${mood}`);
+      
+      // First try to fetch from database
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*')
+        .contains('mood', [mood]);
+        
+      if (error) {
+        console.error('Error fetching mood recommendations:', error);
+        // Fallback to local filtering if database query fails
+        return getLocalMoodRecommendations(mood);
+      }
+      
+      if (data && data.length > 0) {
+        // Convert database format to Song format
+        const dbSongs: Song[] = data.map(song => ({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          audioUrl: song.audio_url,
+          albumArt: song.album_art || 'https://via.placeholder.com/300',
+          duration: song.duration,
+          genre: song.genre || 'Unknown',
+          language: song.language as 'hindi' | 'english'
+        }));
+        
+        // Shuffle and return up to 10 songs
+        const shuffled = dbSongs.sort(() => 0.5 - Math.random());
+        console.log(`Found ${shuffled.length} songs for mood: ${mood} from database`);
+        return shuffled.slice(0, 10);
+      } else {
+        console.log(`No songs found in database for mood: ${mood}, falling back to local`);
+        return getLocalMoodRecommendations(mood);
+      }
+    } catch (error) {
+      console.error('Error in getMoodRecommendations:', error);
+      return getLocalMoodRecommendations(mood);
+    }
+  };
+
+  const getLocalMoodRecommendations = (mood: MoodType): Song[] => {
     if (songs.length === 0) return [];
     
-    console.log(`Getting recommendations for mood: ${mood}`);
+    console.log(`Getting local recommendations for mood: ${mood}`);
     
     const moodGenreMap: Record<MoodType, string[]> = {
       'happy': ['Pop', 'Dance', 'Electro', 'Funk'],

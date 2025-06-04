@@ -10,21 +10,24 @@ import { Badge } from '@/components/ui/badge';
 import { MoodType } from '@/types';
 import { Link } from 'react-router-dom';
 import { Shuffle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
-const moodOptions: { label: string; value: MoodType; emoji: string }[] = [
+// Updated mood options to match database mood column
+const moodOptions: { label: string; value: string; emoji: string }[] = [
   { label: 'Happy', value: 'happy', emoji: '😊' },
   { label: 'Sad', value: 'sad', emoji: '😢' },
   { label: 'Energetic', value: 'energetic', emoji: '⚡' },
-  { label: 'Romantic', value: 'romantic', emoji: '❤️' },
-  { label: 'Relaxed', value: 'relaxed', emoji: '😌' },
   { label: 'Party', value: 'party', emoji: '🎉' },
+  { label: 'Relaxed', value: 'relaxed', emoji: '😌' },
+  { label: 'Dance', value: 'dance', emoji: '💃' },
+  { label: '90s', value: '90s', emoji: '🎵' },
 ];
 
 const Index: React.FC = () => {
   const { isAuthenticated, currentUser } = useAuth();
-  const { songs, currentSong, loadSong, getMoodRecommendations, loadingSongs } = useMusic();
+  const { songs, currentSong, loadSong, loadingSongs } = useMusic();
   const [trendingSongs, setTrendingSongs] = useState<string[]>([]);
-  const [currentMood, setCurrentMood] = useState<MoodType | null>(null);
+  const [currentMood, setCurrentMood] = useState<string | null>(null);
   const [moodSongs, setMoodSongs] = useState<string[]>([]);
   
   // Get random trending songs
@@ -36,11 +39,37 @@ const Index: React.FC = () => {
     }
   }, [songs]);
 
-  // Handle mood selection
-  const handleMoodSelect = (mood: MoodType) => {
+  // Handle mood selection - fetch from database mood column
+  const handleMoodSelect = async (mood: string) => {
     setCurrentMood(mood);
-    const recommendations = getMoodRecommendations(mood);
-    setMoodSongs(recommendations.map(song => song.id));
+    
+    try {
+      console.log(`Fetching songs for mood: ${mood}`);
+      
+      const { data, error } = await supabase
+        .from('songs')
+        .select('id')
+        .contains('mood', [mood]);
+        
+      if (error) {
+        console.error('Error fetching songs by mood:', error);
+        setMoodSongs([]);
+        return;
+      }
+      
+      console.log(`Found ${data?.length || 0} songs for mood: ${mood}`);
+      
+      if (data && data.length > 0) {
+        // Shuffle and take up to 10 songs
+        const shuffled = data.sort(() => 0.5 - Math.random());
+        setMoodSongs(shuffled.slice(0, 10).map(song => song.id));
+      } else {
+        setMoodSongs([]);
+      }
+    } catch (error) {
+      console.error('Error fetching mood songs:', error);
+      setMoodSongs([]);
+    }
   };
 
   // Handle random song play
@@ -194,9 +223,12 @@ const Index: React.FC = () => {
           </div>
         </section>
         
-        {/* Mood Section */}
+        {/* Mood Section - Updated to fetch from database */}
         <section className="mb-12">
-          <h2 className="text-xl md:text-2xl font-semibold mb-4">How are you feeling today?</h2>
+          <h2 className="text-xl md:text-2xl font-semibold mb-4">What's your vibe today?</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Choose from our mood collection: Happy, Sad, Energetic, Party, Relaxed, Dance, or 90s vibes!
+          </p>
           
           <div className="flex flex-wrap gap-3 mb-6">
             {moodOptions.map((mood) => (
@@ -215,12 +247,20 @@ const Index: React.FC = () => {
             ))}
           </div>
           
-          {currentMood && moodSongs.length > 0 && (
+          {currentMood && (
             <div className="bg-white dark:bg-dhun-dark rounded-lg shadow-sm p-4">
-              <SongList 
-                songs={moodSongs} 
-                title={`${moodOptions.find(m => m.value === currentMood)?.emoji} ${moodOptions.find(m => m.value === currentMood)?.label} Music`} 
-              />
+              {moodSongs.length > 0 ? (
+                <SongList 
+                  songs={moodSongs} 
+                  title={`${moodOptions.find(m => m.value === currentMood)?.emoji} ${moodOptions.find(m => m.value === currentMood)?.label} Music`} 
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No songs found for this mood. Try another mood or check back later!
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </section>
