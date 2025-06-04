@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMusic } from '@/contexts/MusicContext';
@@ -38,7 +39,7 @@ const moodConfig = [
 
 const Chatbot: React.FC = () => {
   const { currentUser } = useAuth();
-  const { loadSong } = useMusic();
+  const { loadSong, songs } = useMusic();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -89,8 +90,8 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     if (open && !hasGreeted) {
       const greeting = currentUser 
-        ? `Hello ${currentUser.name}! 🎵 I'm your music assistant. How are you feeling today? I can recommend songs based on your mood, your listening history, or help you discover new music!`
-        : "Hello! Welcome to DhunConnect. 🎵 I'm your music assistant. Sign in to get personalized recommendations based on your listening history!";
+        ? `Hello ${currentUser.name}! 🎵 I'm your music assistant. How are you feeling today? I can recommend songs based on your mood: Happy, Sad, Relaxed, Energetic, Party, Dance, or 90s vibes!`
+        : "Hello! Welcome to DhunConnect. 🎵 I'm your music assistant. Sign in to get personalized recommendations based on your mood!";
       
       setTimeout(() => {
         addMessage('bot', greeting);
@@ -149,10 +150,10 @@ const Chatbot: React.FC = () => {
     addMessage('user', `I'm feeling ${moodLabel}`);
     
     setTimeout(async () => {
-      const songs = await fetchSongsByMood(mood);
+      const songResults = await fetchSongsByMood(mood);
       
-      if (songs.length > 0) {
-        addMessage('bot', `Perfect! Here are ${songs.length} ${moodLabel} songs just for you:`, 'song-suggestions', { songs, mood });
+      if (songResults.length > 0) {
+        addMessage('bot', `Perfect! Here are ${songResults.length} ${moodLabel} songs just for you:`, 'song-suggestions', { songs: songResults, mood });
       } else {
         addMessage('bot', `I don't have any ${moodLabel} songs right now. Try another mood or explore our music library!`);
       }
@@ -248,7 +249,7 @@ const Chatbot: React.FC = () => {
       "I'm here to help you discover music based on your mood! Try clicking 'My Mood' for personalized recommendations! 🎵",
       "Want to find the perfect song for your current mood? Click 'My Mood' and let's get started! 🎭",
       "Music brings people together! Click 'My Mood' to find songs that match how you're feeling today. 🎶",
-      "Ready for some mood-based music? Click 'My Mood' and choose from happy, sad, energetic, party, dance, 90s, or relaxed vibes! 😊",
+      "Ready for some mood-based music? Click 'My Mood' and choose from Happy, Sad, Relaxed, Energetic, Party, Dance, or 90s vibes! 😊",
       "Let's find your perfect soundtrack! Click 'My Mood' and I'll suggest songs that match your current vibe! 🎵"
     ];
     

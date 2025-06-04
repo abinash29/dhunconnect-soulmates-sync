@@ -88,6 +88,8 @@ export const useMatchmaking = () => {
     unregisterConnectedUser,
     addMockConnectedUsers,
     connectedUsers,
-    fetchMatchUserDetails
+    fetchMatchUserDetails,
+    setChatOpen,
+    setCurrentChat
   };
 };

@@ -276,14 +276,7 @@ const Chat: React.FC = () => {
       
       console.log('Setting current chat and opening chatbox:', newChat);
       
-      // Set the current match in context (this is crucial!)
-      // We need to set the current match so ChatRoom knows who we're chatting with
-      const matchContext = {
-        ...user,
-        matchId: match.id
-      };
-      
-      // Set both the chat and the match
+      // Set the current chat
       setCurrentChat(newChat);
       
       // Force open the chat
