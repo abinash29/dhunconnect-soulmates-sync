@@ -9,12 +9,12 @@ export const useMusicRecommendations = (songs: Song[]) => {
     
     const moodGenreMap: Record<MoodType, string[]> = {
       'happy': ['Pop', 'Dance', 'Electro', 'Funk'],
-      'sad': ['Acoustic', 'Ambience', 'Jazz', 'Classical'],
-      'energetic': ['Rock', 'Electronic', 'Metal', 'Punk'],
-      'romantic': ['R&B', 'Acoustic', 'Soul', 'Jazz'],
-      'relaxed': ['Lofi', 'Ambient', 'Chillout', 'Jazz'],
-      'party': ['Dance', 'Hip Hop', 'Electro', 'House'],
-      'focus': ['Ambient', 'Classical', 'Chillout', 'Lofi']
+      'sad': ['Acoustic', 'Ambience', 'Jazz', 'Classical', 'Blues'],
+      'energetic': ['Rock', 'Electronic', 'Metal', 'Punk', 'Hip Hop'],
+      'romantic': ['R&B', 'Acoustic', 'Soul', 'Jazz', 'Bollywood'],
+      'relaxed': ['Lofi', 'Ambient', 'Chillout', 'Jazz', 'New Age'],
+      'party': ['Dance', 'Hip Hop', 'Electro', 'House', 'Funk'],
+      'focus': ['Ambient', 'Classical', 'Chillout', 'Lofi', 'New Age']
     };
     
     const relevantGenres = moodGenreMap[mood] || [];

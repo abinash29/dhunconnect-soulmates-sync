@@ -5,7 +5,7 @@ import { useMusic } from '@/contexts/MusicContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Bot, X, Send, Music } from 'lucide-react';
+import { Bot, X, Send, Music, Heart, Frown, Smile, Zap, PartyPopper, Play } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +15,27 @@ interface Message {
   content: string;
   sender: 'bot' | 'user';
   timestamp: Date;
+  type?: 'text' | 'mood-buttons' | 'song-suggestions';
+  data?: any;
 }
+
+interface MoodSong {
+  id: string;
+  title: string;
+  artist: string;
+  audio_url: string;
+  album_art: string;
+}
+
+const moodConfig = [
+  { name: 'happy', icon: Smile, color: 'bg-yellow-500', label: '😊 Happy' },
+  { name: 'sad', icon: Frown, color: 'bg-blue-500', label: '😢 Sad' },
+  { name: 'relaxed', icon: Heart, color: 'bg-green-500', label: '😌 Relaxed' },
+  { name: 'energetic', icon: Zap, color: 'bg-orange-500', label: '⚡ Energetic' },
+  { name: 'party', icon: PartyPopper, color: 'bg-purple-500', label: '🎉 Party' },
+  { name: 'romantic', icon: Heart, color: 'bg-pink-500', label: '💕 Romantic' },
+  { name: 'focus', icon: Music, color: 'bg-indigo-500', label: '🎯 Focus' }
+];
 
 const Chatbot: React.FC = () => {
   const { currentUser } = useAuth();
@@ -70,26 +90,97 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     if (open && !hasGreeted) {
       const greeting = currentUser 
-        ? `Hello ${currentUser.name}! I'm your music assistant. I can recommend songs based on your listening history, your mood, or help you discover new music. How can I help you today?`
-        : "Hello! Welcome to DhunConnect. I'm your music assistant. Sign in to get personalized recommendations based on your listening history!";
+        ? `Hello ${currentUser.name}! 🎵 I'm your music assistant. How are you feeling today? I can recommend songs based on your mood, your listening history, or help you discover new music!`
+        : "Hello! Welcome to DhunConnect. 🎵 I'm your music assistant. Sign in to get personalized recommendations based on your listening history!";
       
       setTimeout(() => {
         addMessage('bot', greeting);
+        
+        // Add mood button after greeting
+        setTimeout(() => {
+          addMessage('bot', "Click on 'My Mood' to explore music based on how you're feeling! 🎭", 'mood-buttons');
+        }, 1000);
+        
         setHasGreeted(true);
       }, 600);
     }
   }, [open, currentUser, hasGreeted]);
   
-  const addMessage = (sender: 'bot' | 'user', content: string) => {
+  const addMessage = (sender: 'bot' | 'user', content: string, type: 'text' | 'mood-buttons' | 'song-suggestions' = 'text', data?: any) => {
     setMessages(prev => [
       ...prev, 
       {
         id: Date.now().toString(),
         content,
         sender,
-        timestamp: new Date()
+        timestamp: new Date(),
+        type,
+        data
       }
     ]);
+  };
+  
+  const fetchSongsByMood = async (mood: string): Promise<MoodSong[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('songs')
+        .select('id, title, artist, audio_url, album_art')
+        .contains('mood', [mood])
+        .limit(10);
+        
+      if (error) throw error;
+      
+      // Shuffle and return 2 random songs
+      const shuffled = data?.sort(() => 0.5 - Math.random()) || [];
+      return shuffled.slice(0, 2);
+    } catch (error) {
+      console.error('Error fetching songs by mood:', error);
+      return [];
+    }
+  };
+  
+  const handleMoodClick = async (mood: string) => {
+    const moodLabel = moodConfig.find(m => m.name === mood)?.label || mood;
+    addMessage('user', `I'm feeling ${moodLabel}`);
+    
+    setTimeout(async () => {
+      const songs = await fetchSongsByMood(mood);
+      
+      if (songs.length > 0) {
+        addMessage('bot', `Perfect! Here are 2 ${moodLabel} songs just for you:`, 'song-suggestions', { songs, mood });
+      } else {
+        addMessage('bot', `I don't have any ${moodLabel} songs right now, but let me suggest some from my collection!`);
+        
+        // Fallback to local recommendations
+        const fallbackSongs = getMoodRecommendations(mood as any).slice(0, 2);
+        if (fallbackSongs.length > 0) {
+          const songData = fallbackSongs.map(song => ({
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            audio_url: song.audioUrl,
+            album_art: song.albumArt
+          }));
+          addMessage('bot', `Here are some great ${moodLabel} vibes for you:`, 'song-suggestions', { songs: songData, mood });
+        }
+      }
+    }, 1000);
+  };
+  
+  const handleSongPlay = (song: MoodSong) => {
+    const songToPlay = {
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      audioUrl: song.audio_url,
+      albumArt: song.album_art,
+      duration: 180, // Default duration
+      genre: 'Unknown',
+      language: 'english' as const
+    };
+    
+    loadSong(songToPlay);
+    addMessage('bot', `🎵 Now playing "${song.title}" by ${song.artist}. Enjoy the music!`);
   };
   
   const handleSendMessage = () => {
@@ -135,7 +226,14 @@ const Chatbot: React.FC = () => {
     
     // Check for different message types
     if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-      return `Hi there! How can I help you with your music journey today?`;
+      return `Hi there! 🎵 How can I help you with your music journey today? Try clicking "My Mood" to get personalized song recommendations!`;
+    }
+    
+    if (message.includes('mood') || message.includes('feeling')) {
+      setTimeout(() => {
+        addMessage('bot', 'Choose your current mood:', 'mood-buttons');
+      }, 500);
+      return `Great! Let me help you find the perfect music for your mood. 🎭`;
     }
     
     if (message.includes('recommend') || message.includes('suggestion')) {
@@ -146,55 +244,6 @@ const Chatbot: React.FC = () => {
       } else {
         const randomSong = songs[Math.floor(Math.random() * songs.length)];
         return `I'd recommend "${randomSong.title}" by ${randomSong.artist}. Would you like me to play it for you?`;
-      }
-    }
-    
-    // Mood-based recommendations
-    if (message.includes('happy') || message.includes('upbeat')) {
-      const happySongs = getMoodRecommendations('happy').slice(0, 2);
-      if (happySongs.length > 0) {
-        const songText = happySongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
-        return `For a happy mood, try ${songText}! Want me to play one?`;
-      }
-    }
-    
-    if (message.includes('sad') || message.includes('down')) {
-      const sadSongs = getMoodRecommendations('sad').slice(0, 2);
-      if (sadSongs.length > 0) {
-        const songText = sadSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
-        return `For when you're feeling down, I suggest ${songText}. Music can be healing.`;
-      }
-    }
-    
-    if (message.includes('energetic') || message.includes('workout') || message.includes('exercise')) {
-      const energeticSongs = getMoodRecommendations('energetic').slice(0, 2);
-      if (energeticSongs.length > 0) {
-        const songText = energeticSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
-        return `For energy and workouts, try ${songText}! Perfect for getting pumped up.`;
-      }
-    }
-    
-    if (message.includes('romantic') || message.includes('love')) {
-      const romanticSongs = getMoodRecommendations('romantic').slice(0, 2);
-      if (romanticSongs.length > 0) {
-        const songText = romanticSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
-        return `For romantic moments, I recommend ${songText}. Perfect for setting the mood!`;
-      }
-    }
-    
-    if (message.includes('relax') || message.includes('chill') || message.includes('calm')) {
-      const relaxedSongs = getMoodRecommendations('relaxed').slice(0, 2);
-      if (relaxedSongs.length > 0) {
-        const songText = relaxedSongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
-        return `To relax and unwind, try ${songText}. Great for chilling out!`;
-      }
-    }
-    
-    if (message.includes('party') || message.includes('dance')) {
-      const partySongs = getMoodRecommendations('party').slice(0, 2);
-      if (partySongs.length > 0) {
-        const songText = partySongs.map(song => `"${song.title}" by ${song.artist}`).join(' or ');
-        return `For party vibes, pump up ${songText}! Let's get this party started!`;
       }
     }
     
@@ -211,7 +260,7 @@ const Chatbot: React.FC = () => {
         if (matchingSongs.length > 0) {
           const song = matchingSongs[0];
           loadSong(song);
-          return `Now playing "${song.title}" by ${song.artist}. Enjoy!`;
+          return `🎵 Now playing "${song.title}" by ${song.artist}. Enjoy!`;
         }
       }
       
@@ -219,7 +268,7 @@ const Chatbot: React.FC = () => {
       const recommendations = getPersonalizedRecommendations();
       const randomSong = recommendations[Math.floor(Math.random() * recommendations.length)];
       loadSong(randomSong);
-      return `I've put on "${randomSong.title}" by ${randomSong.artist} based on your taste. Hope you enjoy it!`;
+      return `🎵 I've put on "${randomSong.title}" by ${randomSong.artist} based on your taste. Hope you enjoy it!`;
     }
     
     if (message.includes('history') || message.includes('played') || message.includes('listened')) {
@@ -234,20 +283,20 @@ const Chatbot: React.FC = () => {
     }
     
     if (message.includes('how') && message.includes('work')) {
-      return `DhunConnect helps you find music soulmates! When you listen to a song, we look for other users listening to the same track. When we find a match, we'll connect you so you can chat and share your love for music!`;
+      return `DhunConnect helps you find music soulmates! 🎵 When you listen to a song, we look for other users listening to the same track. When we find a match, we'll connect you so you can chat and share your love for music!`;
     }
     
     if (message.includes('thank')) {
-      return `You're welcome! I'm here to help whenever you need music assistance.`;
+      return `You're welcome! 🎵 I'm here to help whenever you need music assistance. Try exploring different moods for amazing song discoveries!`;
     }
     
     // Default responses
     const defaultResponses = [
-      "I'm here to help you discover music and connect with others who share your taste. Try asking me for mood-based recommendations!",
-      "You can ask me to recommend songs based on your mood (happy, sad, energetic, romantic, relaxed, party) or your listening history.",
-      "Music brings people together! Try listening to some songs and we'll match you with others who share your taste.",
-      "Want personalized recommendations? Tell me your mood or ask about your listening history!",
-      "I can suggest songs for any mood - just tell me how you're feeling or what you want to listen to!"
+      "I'm here to help you discover music and connect with others who share your taste. Try clicking 'My Mood' for personalized recommendations! 🎵",
+      "You can ask me to recommend songs based on your mood or your listening history. Click 'My Mood' to get started! 🎭",
+      "Music brings people together! Try listening to some songs and we'll match you with others who share your taste. 🎶",
+      "Want personalized recommendations? Tell me your mood or click 'My Mood' to explore! 😊",
+      "I can suggest songs for any mood - just click 'My Mood' and choose how you're feeling! 🎵"
     ];
     
     return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
@@ -258,6 +307,110 @@ const Chatbot: React.FC = () => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+  
+  const renderMessage = (msg: Message) => {
+    if (msg.type === 'mood-buttons') {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm">{msg.content}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => {
+                setTimeout(() => {
+                  addMessage('bot', 'Choose your mood:', 'text');
+                  setTimeout(() => {
+                    addMessage('bot', 'Select how you\'re feeling right now:', 'text');
+                    // Show all mood buttons
+                    setTimeout(() => {
+                      const moodButtons = (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {moodConfig.map((mood) => {
+                            const IconComponent = mood.icon;
+                            return (
+                              <Button
+                                key={mood.name}
+                                variant="outline"
+                                size="sm"
+                                className={`${mood.color} text-white hover:opacity-80 text-xs p-2`}
+                                onClick={() => handleMoodClick(mood.name)}
+                              >
+                                <IconComponent size={14} className="mr-1" />
+                                {mood.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      );
+                      
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          id: Date.now().toString(),
+                          content: '',
+                          sender: 'bot',
+                          timestamp: new Date(),
+                          type: 'text',
+                          data: { customRender: moodButtons }
+                        }
+                      ]);
+                    }, 500);
+                  }, 500);
+                }, 500);
+              }}
+              className="bg-dhun-purple hover:bg-dhun-purple/90 text-white"
+              size="sm"
+            >
+              <Music size={16} className="mr-2" />
+              My Mood 🎭
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    
+    if (msg.type === 'song-suggestions' && msg.data?.songs) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm">{msg.content}</p>
+          <div className="space-y-2">
+            {msg.data.songs.map((song: MoodSong, index: number) => (
+              <div key={song.id} className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <img 
+                  src={song.album_art || 'https://via.placeholder.com/40'} 
+                  alt={song.title}
+                  className="w-10 h-10 rounded object-cover"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{song.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleSongPlay(song)}
+                  className="bg-dhun-purple hover:bg-dhun-purple/90 text-white px-3"
+                >
+                  <Play size={14} className="mr-1" />
+                  Play
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    
+    // Check for custom render data
+    if (msg.data?.customRender) {
+      return (
+        <div>
+          {msg.content && <p className="text-sm mb-2">{msg.content}</p>}
+          {msg.data.customRender}
+        </div>
+      );
+    }
+    
+    return <p className="text-sm">{msg.content}</p>;
   };
   
   return (
@@ -295,7 +448,7 @@ const Chatbot: React.FC = () => {
                 <div 
                   key={msg.id} 
                   className={cn(
-                    "flex w-max max-w-[80%] rounded-lg p-3",
+                    "flex w-max max-w-[85%] rounded-lg p-3",
                     msg.sender === 'user' 
                       ? "bg-dhun-light-purple ml-auto" 
                       : "bg-gray-100 dark:bg-gray-800"
@@ -304,8 +457,8 @@ const Chatbot: React.FC = () => {
                   {msg.sender === 'bot' && (
                     <Bot size={16} className="mr-2 mt-0.5 shrink-0" />
                   )}
-                  <div>
-                    <p className="text-sm">{msg.content}</p>
+                  <div className="w-full">
+                    {renderMessage(msg)}
                     <p className="text-[10px] opacity-70 text-right mt-1">
                       {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
