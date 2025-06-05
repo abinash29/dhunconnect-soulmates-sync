@@ -28,48 +28,48 @@ const Discover: React.FC = () => {
   const languageSongs = getSongsByLanguage(selectedLanguage).map(song => song.id);
 
   return (
-    <div className="min-h-screen flex flex-col pb-20">
+    <div className="min-h-screen flex flex-col pb-16 sm:pb-20">
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-6">
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Discover Music</h1>
-          <p className="text-gray-600 dark:text-gray-300">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 py-3 sm:py-6">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Discover Music</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
             Find new songs and connect with people who share your music taste
           </p>
         </div>
         
-        <Tabs defaultValue="language" className="mb-8">
-          <TabsList className="mb-6">
-            <TabsTrigger value="language">By Language</TabsTrigger>
-            <TabsTrigger value="genre">By Genre</TabsTrigger>
+        <Tabs defaultValue="language" className="mb-6 sm:mb-8">
+          <TabsList className="mb-4 sm:mb-6 w-full sm:w-auto">
+            <TabsTrigger value="language" className="text-xs sm:text-sm flex-1 sm:flex-none">By Language</TabsTrigger>
+            <TabsTrigger value="genre" className="text-xs sm:text-sm flex-1 sm:flex-none">By Genre</TabsTrigger>
           </TabsList>
           
           <TabsContent value="language">
-            <div className="mb-6 flex flex-wrap gap-3">
+            <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
               <Button
                 variant={selectedLanguage === 'english' ? 'default' : 'outline'}
-                className={selectedLanguage === 'english' 
+                className={`text-xs sm:text-sm ${selectedLanguage === 'english' 
                   ? "bg-dhun-purple hover:bg-dhun-purple/90" 
                   : "border-dhun-purple text-dhun-purple hover:bg-dhun-purple/10"
-                }
+                }`}
                 onClick={() => setSelectedLanguage('english')}
               >
                 English
               </Button>
               <Button
                 variant={selectedLanguage === 'hindi' ? 'default' : 'outline'}
-                className={selectedLanguage === 'hindi' 
+                className={`text-xs sm:text-sm ${selectedLanguage === 'hindi' 
                   ? "bg-dhun-purple hover:bg-dhun-purple/90" 
                   : "border-dhun-purple text-dhun-purple hover:bg-dhun-purple/10"
-                }
+                }`}
                 onClick={() => setSelectedLanguage('hindi')}
               >
                 Hindi
               </Button>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
               {languageSongs.map(songId => (
                 <SongCard key={songId} songId={songId} />
               ))}
@@ -77,10 +77,10 @@ const Discover: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="genre">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-              <div className="w-full sm:w-64">
+            <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <div className="w-full">
                 <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select Genre" />
                   </SelectTrigger>
                   <SelectContent>
@@ -91,13 +91,13 @@ const Discover: React.FC = () => {
                 </Select>
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button
                   variant={selectedLanguage === 'english' ? 'default' : 'outline'}
-                  className={selectedLanguage === 'english' 
+                  className={`text-xs sm:text-sm ${selectedLanguage === 'english' 
                     ? "bg-dhun-purple hover:bg-dhun-purple/90" 
                     : "border-dhun-purple text-dhun-purple hover:bg-dhun-purple/10"
-                  }
+                  }`}
                   onClick={() => setSelectedLanguage('english')}
                   size="sm"
                 >
@@ -105,10 +105,10 @@ const Discover: React.FC = () => {
                 </Button>
                 <Button
                   variant={selectedLanguage === 'hindi' ? 'default' : 'outline'}
-                  className={selectedLanguage === 'hindi' 
+                  className={`text-xs sm:text-sm ${selectedLanguage === 'hindi' 
                     ? "bg-dhun-purple hover:bg-dhun-purple/90" 
                     : "border-dhun-purple text-dhun-purple hover:bg-dhun-purple/10"
-                  }
+                  }`}
                   onClick={() => setSelectedLanguage('hindi')}
                   size="sm"
                 >
@@ -118,14 +118,14 @@ const Discover: React.FC = () => {
             </div>
             
             {genreFilteredSongs.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
                 {genreFilteredSongs.map(songId => (
                   <SongCard key={songId} songId={songId} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500">
+              <div className="text-center py-8 sm:py-12">
+                <p className="text-sm sm:text-base text-gray-500">
                   No songs found for {selectedGenre} in {selectedLanguage}. Try a different genre or language.
                 </p>
               </div>

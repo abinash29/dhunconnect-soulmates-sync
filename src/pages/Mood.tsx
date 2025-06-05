@@ -64,58 +64,78 @@ const Mood: React.FC = () => {
   const { getMoodRecommendations } = useMusic();
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [moodSongs, setMoodSongs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleMoodSelect = (mood: MoodType) => {
+  const handleMoodSelect = async (mood: MoodType) => {
     setSelectedMood(mood);
-    const recommendations = getMoodRecommendations(mood);
-    setMoodSongs(recommendations.map(song => song.id));
+    setLoading(true);
+    try {
+      const recommendations = await getMoodRecommendations(mood);
+      setMoodSongs(recommendations.map(song => song.id));
+    } catch (error) {
+      console.error('Error getting mood recommendations:', error);
+      setMoodSongs([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-20">
+    <div className="min-h-screen flex flex-col pb-16 sm:pb-20">
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-6">
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Mood-Based Music</h1>
-          <p className="text-gray-600 dark:text-gray-300">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 py-3 sm:py-6">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Mood-Based Music</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
             Discover songs that match how you're feeling right now
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {moodOptions.map((mood) => (
             <Card 
               key={mood.value}
-              className={`cursor-pointer border-2 transition-all ${
+              className={`cursor-pointer border-2 transition-all hover:scale-105 ${
                 selectedMood === mood.value 
                   ? 'border-dhun-purple ring-2 ring-dhun-purple/20' 
                   : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700'
               } ${mood.color}`}
               onClick={() => handleMoodSelect(mood.value)}
             >
-              <CardContent className="p-6 flex flex-col items-center text-center">
-                <span className="text-4xl mb-3" role="img" aria-label={mood.label}>
+              <CardContent className="p-3 sm:p-6 flex flex-col items-center text-center">
+                <span className="text-2xl sm:text-4xl mb-2 sm:mb-3" role="img" aria-label={mood.label}>
                   {mood.emoji}
                 </span>
-                <h3 className="text-xl font-semibold mb-1">{mood.label}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">{mood.description}</p>
+                <h3 className="text-sm sm:text-xl font-semibold mb-1">{mood.label}</h3>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 hidden sm:block">
+                  {mood.description}
+                </p>
               </CardContent>
             </Card>
           ))}
         </div>
         
         {selectedMood && (
-          <div className="bg-white dark:bg-dhun-dark rounded-lg shadow-sm p-4">
-            <SongList 
-              songs={moodSongs} 
-              title={`${moodOptions.find(m => m.value === selectedMood)?.emoji} ${moodOptions.find(m => m.value === selectedMood)?.label} Music Recommendations`} 
-            />
-            
-            {moodSongs.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No songs found for this mood. Try a different one.</p>
+          <div className="bg-white dark:bg-dhun-dark rounded-lg shadow-sm p-3 sm:p-4">
+            {loading ? (
+              <div className="text-center py-6 sm:py-8">
+                <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-dhun-purple mx-auto mb-3 sm:mb-4"></div>
+                <p className="text-sm sm:text-base text-gray-500">Loading mood recommendations...</p>
               </div>
+            ) : (
+              <>
+                <SongList 
+                  songs={moodSongs} 
+                  title={`${moodOptions.find(m => m.value === selectedMood)?.emoji} ${moodOptions.find(m => m.value === selectedMood)?.label} Music Recommendations`} 
+                />
+                
+                {moodSongs.length === 0 && !loading && (
+                  <div className="text-center py-6 sm:py-8">
+                    <p className="text-sm sm:text-base text-gray-500">No songs found for this mood. Try a different one.</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
