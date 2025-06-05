@@ -99,9 +99,11 @@ const Index: React.FC = () => {
       const recommendations = await getRecommendedSongs(5);
       setRecommendedSongs(recommendations);
       
-      const favoriteGenre = getMostListenedGenre();
+      const favoriteGenre = await getMostListenedGenre();
       if (favoriteGenre) {
         console.log(`Recommendations based on your favorite genre: ${favoriteGenre}`);
+      } else {
+        console.log('No listening history found, showing random recommendations');
       }
     } catch (error) {
       console.error('Error getting recommendations:', error);

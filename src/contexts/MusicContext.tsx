@@ -97,7 +97,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentChat: setMatchmakingCurrentChat
   } = useMatchmaking();
 
-  const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
+  const { getMoodRecommendations: getMoodRecsAsync, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
   
   const { addToHistory, getMostListenedGenre, getRecommendedSongs } = useListeningHistory();
   
@@ -268,6 +268,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setCurrentChat = (chat: Chat | null) => {
     setMatchmakingCurrentChat(chat);
+  };
+
+  // Wrap getMoodRecommendations to make it async
+  const getMoodRecommendations = async (mood: MoodType): Promise<Song[]> => {
+    return getMoodRecsAsync(mood);
   };
 
   const value: MusicContextType = {

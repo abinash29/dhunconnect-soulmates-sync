@@ -63,5 +63,13 @@ export interface MusicContextType {
   setChatOpen: (isOpen: boolean) => void;
   setCurrentChat: (chat: Chat | null) => void;
   getRecommendedSongs: (count?: number) => Promise<Song[]>;
-  getMostListenedGenre: () => string | null;
+  getMostListenedGenre: () => Promise<string | null>;
+  getMoodRecommendations: (mood: MoodType) => Promise<Song[]>;
+  getSongsByGenre: (genre: string) => Song[];
+  getSongsByLanguage: (language: "hindi" | "english") => Song[];
+  loadingSongs: boolean;
+  loadingError: string | null;
+  searchResults: Song[];
+  searchQuery: string;
+  searchSongs: (query: string) => void;
 }

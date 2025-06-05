@@ -76,6 +76,38 @@ export type Database = {
           },
         ]
       }
+      listening_history: {
+        Row: {
+          genre: string
+          id: string
+          listened_at: string
+          song_id: string
+          user_id: string
+        }
+        Insert: {
+          genre: string
+          id?: string
+          listened_at?: string
+          song_id: string
+          user_id: string
+        }
+        Update: {
+          genre?: string
+          id?: string
+          listened_at?: string
+          song_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listening_history_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           created_at: string | null
@@ -176,7 +208,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_most_listened_genre: {
+        Args: { user_uuid: string }
+        Returns: string
+      }
+      get_recommended_songs: {
+        Args: { user_uuid: string; recommendation_count?: number }
+        Returns: {
+          id: string
+          title: string
+          artist: string
+          album_art: string
+          audio_url: string
+          duration: number
+          genre: string
+          language: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
