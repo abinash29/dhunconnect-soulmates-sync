@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Song, User, Chat, Message, MoodType } from '../types';
 import { fetchTracks, searchTracks, registerActiveListener, unregisterActiveListener } from '@/services/musicApi';
@@ -28,11 +29,11 @@ interface MusicContextType {
   searchSongs: (query: string) => void;
   sendMessage: (content: string) => void;
   toggleChat: () => void;
-  getMoodRecommendations: (mood: MoodType) => Song[];
+  getMoodRecommendations: (mood: MoodType) => Promise<Song[]>;
   getSongsByGenre: (genre: string) => Song[];
   getSongsByLanguage: (language: "hindi" | "english") => Song[];
   getRecommendedSongs: (count?: number) => Promise<Song[]>;
-  getMostListenedGenre: () => string | null;
+  getMostListenedGenre: () => Promise<string | null>;
   loadingSongs: boolean;
   loadingError: string | null;
   activeListeners: Record<string, number>;
@@ -44,6 +45,7 @@ interface MusicContextType {
   registerConnectedUser: (user: User) => void;
   unregisterConnectedUser: (userId: string) => void;
   fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => Promise<void>;
+  playRecommendedSong: () => Promise<void>;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -270,6 +272,51 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setMatchmakingCurrentChat(chat);
   };
 
+  // Function to play a recommended song from user's favorite genre
+  const playRecommendedSong = async (): Promise<void> => {
+    if (!currentUser) {
+      toast({
+        title: "Not Logged In",
+        description: "Please login to get personalized recommendations.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('Getting personalized recommendation...');
+      const recommendations = await getRecommendedSongs(1);
+      
+      if (recommendations.length > 0) {
+        const recommendedSong = recommendations[0];
+        loadSong(recommendedSong);
+        
+        const favoriteGenre = await getMostListenedGenre();
+        toast({
+          title: "Playing Recommendation",
+          description: `Playing ${recommendedSong.title} from your favorite genre: ${favoriteGenre || 'Mixed'}`,
+        });
+      } else {
+        // Fallback to random song if no recommendations
+        if (songs.length > 0) {
+          const randomSong = songs[Math.floor(Math.random() * songs.length)];
+          loadSong(randomSong);
+          toast({
+            title: "Playing Random Song",
+            description: "No listening history found. Playing a random song to get started!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error getting recommendation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get recommendation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Wrap getMoodRecommendations to make it async
   const getMoodRecommendations = async (mood: MoodType): Promise<Song[]> => {
     return getMoodRecsAsync(mood);
@@ -310,6 +357,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     registerConnectedUser,
     unregisterConnectedUser,
     fetchMatchUserDetails,
+    playRecommendedSong,
   };
 
   return (

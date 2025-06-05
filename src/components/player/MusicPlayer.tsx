@@ -29,41 +29,41 @@ const MusicPlayer: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dhun-dark border-t border-gray-200 dark:border-gray-800 p-3 z-40">
-      <div className="container mx-auto flex flex-col md:flex-row items-center gap-4">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dhun-dark border-t border-gray-200 dark:border-gray-800 p-2 sm:p-3 z-40">
+      <div className="container mx-auto flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
         {/* Song Info */}
-        <div className="flex items-center gap-3 w-full md:w-1/4">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-1/4">
           <img 
             src={currentSong.albumArt || '/placeholder.svg'} 
             alt={currentSong.title} 
-            className="h-12 w-12 rounded-md object-cover"
+            className="h-10 w-10 sm:h-12 sm:w-12 rounded-md object-cover flex-shrink-0"
             onError={(e) => {
               (e.target as HTMLImageElement).src = '/placeholder.svg';
             }}
           />
-          <div className="overflow-hidden">
-            <h4 className="font-medium text-sm whitespace-nowrap overflow-hidden text-ellipsis">{currentSong.title}</h4>
+          <div className="overflow-hidden min-w-0 flex-1">
+            <h4 className="font-medium text-xs sm:text-sm whitespace-nowrap overflow-hidden text-ellipsis">{currentSong.title}</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis">{currentSong.artist}</p>
           </div>
         </div>
         
         {/* Player Controls */}
-        <div className="flex flex-col items-center w-full md:w-2/4 gap-2">
+        <div className="flex flex-col items-center w-full sm:w-2/4 gap-1 sm:gap-2">
           {/* Play/Pause Button */}
           <div className="flex items-center justify-center">
             <Button 
               onClick={togglePlay} 
               size="sm" 
               variant="ghost" 
-              className="rounded-full h-10 w-10 flex items-center justify-center"
+              className="rounded-full h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center"
             >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+              {isPlaying ? <Pause size={18} /> : <Play size={18} />}
             </Button>
           </div>
           
           {/* Progress Bar */}
           <div className="w-full flex items-center gap-2">
-            <span className="text-xs">{formatTime(progress)}</span>
+            <span className="text-xs hidden sm:block">{formatTime(progress)}</span>
             <div className="flex-1">
               <input 
                 type="range" 
@@ -74,12 +74,12 @@ const MusicPlayer: React.FC = () => {
                 className="w-full h-1 rounded-full progress-bar appearance-none bg-gray-200 dark:bg-gray-700 cursor-pointer"
               />
             </div>
-            <span className="text-xs">{formatTime(duration)}</span>
+            <span className="text-xs hidden sm:block">{formatTime(duration)}</span>
           </div>
         </div>
         
         {/* Volume Control */}
-        <div className="flex items-center gap-2 w-full md:w-1/4 justify-end">
+        <div className="flex items-center gap-2 w-full sm:w-1/4 justify-center sm:justify-end">
           <div
             className="relative"
             onMouseEnter={() => setShowVolumeSlider(true)}
@@ -88,13 +88,13 @@ const MusicPlayer: React.FC = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="rounded-full h-8 w-8 flex items-center justify-center"
+              className="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center"
             >
               <VolumeIcon />
             </Button>
             
             {showVolumeSlider && (
-              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-dhun-dark shadow-lg rounded-lg p-2 w-32 flex flex-col items-center">
+              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-dhun-dark shadow-lg rounded-lg p-2 w-24 sm:w-32 flex flex-col items-center">
                 <input 
                   type="range" 
                   min="0" 

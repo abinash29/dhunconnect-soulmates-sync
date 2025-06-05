@@ -72,4 +72,5 @@ export interface MusicContextType {
   searchResults: Song[];
   searchQuery: string;
   searchSongs: (query: string) => void;
+  playRecommendedSong: () => Promise<void>;
 }
