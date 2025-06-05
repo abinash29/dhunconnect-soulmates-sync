@@ -62,4 +62,6 @@ export interface MusicContextType {
   fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => Promise<void>;
   setChatOpen: (isOpen: boolean) => void;
   setCurrentChat: (chat: Chat | null) => void;
+  getRecommendedSongs: (count?: number) => Promise<Song[]>;
+  getMostListenedGenre: () => string | null;
 }

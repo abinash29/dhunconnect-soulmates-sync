@@ -7,6 +7,7 @@ import { useMusicRecommendations } from '@/hooks/useMusicRecommendations';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useListeningHistory } from '@/hooks/useListeningHistory';
 
 interface MusicContextType {
   songs: Song[];
@@ -30,6 +31,8 @@ interface MusicContextType {
   getMoodRecommendations: (mood: MoodType) => Song[];
   getSongsByGenre: (genre: string) => Song[];
   getSongsByLanguage: (language: "hindi" | "english") => Song[];
+  getRecommendedSongs: (count?: number) => Promise<Song[]>;
+  getMostListenedGenre: () => string | null;
   loadingSongs: boolean;
   loadingError: string | null;
   activeListeners: Record<string, number>;
@@ -95,6 +98,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   } = useMatchmaking();
 
   const { getMoodRecommendations, getSongsByGenre, getSongsByLanguage } = useMusicRecommendations(songs);
+  
+  const { addToHistory, getMostListenedGenre, getRecommendedSongs } = useListeningHistory();
   
   // Use the Supabase realtime hook with proper props - fixed function signature
   useSupabaseRealtime({
@@ -175,6 +180,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Track user's active listening status
   const loadSong = (song: Song) => {
     loadAudioSong(song);
+    
+    // Add to listening history
+    addToHistory(song);
     
     // Update active listeners for this song
     if (currentUser) {
@@ -284,6 +292,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     getMoodRecommendations,
     getSongsByGenre,
     getSongsByLanguage,
+    getRecommendedSongs,
+    getMostListenedGenre,
     loadingSongs,
     loadingError,
     activeListeners,

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMusic } from '@/contexts/MusicContext';
@@ -7,9 +6,9 @@ import SongCard from '@/components/songs/SongCard';
 import SongList from '@/components/songs/SongList';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MoodType } from '@/types';
+import { MoodType, Song } from '@/types';
 import { Link } from 'react-router-dom';
-import { Shuffle } from 'lucide-react';
+import { Shuffle, Star, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Updated mood options to match database mood column
@@ -25,10 +24,19 @@ const moodOptions: { label: string; value: string; emoji: string }[] = [
 
 const Index: React.FC = () => {
   const { isAuthenticated, currentUser } = useAuth();
-  const { songs, currentSong, loadSong, loadingSongs } = useMusic();
+  const { 
+    songs, 
+    currentSong, 
+    loadSong, 
+    loadingSongs, 
+    getRecommendedSongs, 
+    getMostListenedGenre 
+  } = useMusic();
   const [trendingSongs, setTrendingSongs] = useState<string[]>([]);
   const [currentMood, setCurrentMood] = useState<string | null>(null);
   const [moodSongs, setMoodSongs] = useState<string[]>([]);
+  const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   
   // Get random trending songs
   useEffect(() => {
@@ -81,6 +89,27 @@ const Index: React.FC = () => {
     }
   };
 
+  // Handle recommendations based on listening history
+  const handleGetRecommendations = async () => {
+    if (!isAuthenticated) return;
+    
+    setLoadingRecommendations(true);
+    try {
+      console.log('Getting personalized recommendations...');
+      const recommendations = await getRecommendedSongs(5);
+      setRecommendedSongs(recommendations);
+      
+      const favoriteGenre = getMostListenedGenre();
+      if (favoriteGenre) {
+        console.log(`Recommendations based on your favorite genre: ${favoriteGenre}`);
+      }
+    } catch (error) {
+      console.error('Error getting recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col pb-20">
       <Header />
@@ -121,6 +150,14 @@ const Index: React.FC = () => {
                     <Shuffle className="w-4 h-4 mr-2" />
                     Listen to Random Song
                   </Button>
+                  <Button 
+                    onClick={handleGetRecommendations}
+                    className="bg-dhun-orange hover:bg-dhun-orange/90"
+                    disabled={loadingRecommendations}
+                  >
+                    <Star className="w-4 h-4 mr-2" />
+                    {loadingRecommendations ? 'Loading...' : 'Get Recommendations'}
+                  </Button>
                   <Link to="/profile">
                     <Button className="bg-dhun-purple hover:bg-dhun-purple/90">
                       My Profile
@@ -143,6 +180,36 @@ const Index: React.FC = () => {
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-dhun-purple mx-auto mb-4"></div>
             <p>Loading songs for you...</p>
           </div>
+        )}
+        
+        {/* Personalized Recommendations Section */}
+        {isAuthenticated && recommendedSongs.length > 0 && (
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-dhun-orange" />
+                <h2 className="text-xl md:text-2xl font-semibold">Recommended For You</h2>
+                {getMostListenedGenre() && (
+                  <Badge variant="outline" className="border-dhun-orange text-dhun-orange">
+                    Based on {getMostListenedGenre()} music
+                  </Badge>
+                )}
+              </div>
+              <Button 
+                onClick={handleGetRecommendations}
+                variant="outline"
+                className="border-dhun-orange text-dhun-orange hover:bg-dhun-orange/10"
+                disabled={loadingRecommendations}
+              >
+                <Shuffle className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+            
+            <div className="bg-white dark:bg-dhun-dark rounded-lg p-4 shadow-sm mb-6">
+              <SongList songs={recommendedSongs.map(song => song.id)} />
+            </div>
+          </section>
         )}
         
         {/* All Songs Section - Added to ensure songs are visible */}
