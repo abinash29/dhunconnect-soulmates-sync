@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -215,16 +216,9 @@ const ChatRoom: React.FC = () => {
     setChatOpen(false);
     setCurrentChat(null);
     
-    // Navigate based on current location
-    if (location.pathname === '/chat') {
-      // If we're on the chat page, we don't need to navigate anywhere
-      // The chat overlay will close and show the chat list again
-      console.log('Staying on chat page, just closing chat overlay');
-    } else {
-      // If we're on any other page (like home), navigate back to home
-      console.log('Navigating back to home');
-      navigate('/');
-    }
+    // Always stay on the same page when closing chat
+    // Don't navigate anywhere, just close the overlay
+    console.log('Closing chat overlay, staying on current page');
   };
 
   if (!currentMatch || !currentUser) {
@@ -258,14 +252,14 @@ const ChatRoom: React.FC = () => {
               <Button variant="ghost" size="sm" onClick={handleBackButton}>
                 <ArrowLeft size={18} />
               </Button>
-              <Avatar>
+              <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
                 <AvatarImage src={currentMatch.avatar} />
                 <AvatarFallback className="bg-dhun-orange text-white">
                   {currentMatch.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <SheetTitle className="mb-0">{currentMatch.name}</SheetTitle>
+                <SheetTitle className="mb-0 text-sm sm:text-base">{currentMatch.name}</SheetTitle>
                 <p className="text-xs text-gray-500">Matched via music</p>
                 {isTyping && (
                   <span className="text-xs text-dhun-purple animate-pulse">typing...</span>
@@ -276,7 +270,7 @@ const ChatRoom: React.FC = () => {
         </SheetHeader>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50 dark:bg-gray-900">
           {messagesToDisplay.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const isBot = msg.isBot;
@@ -287,7 +281,7 @@ const ChatRoom: React.FC = () => {
                 className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div 
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2 sm:p-3 ${
                     isBot 
                       ? 'bg-dhun-light-blue text-gray-800' 
                       : isCurrentUser 
@@ -297,14 +291,14 @@ const ChatRoom: React.FC = () => {
                 >
                   {isBot && (
                     <div className="flex items-center mb-1">
-                      <div className="h-5 w-5 rounded-full bg-dhun-blue flex items-center justify-center mr-1">
-                        <User size={12} className="text-white" />
+                      <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-dhun-blue flex items-center justify-center mr-1">
+                        <User size={10} className="text-white sm:w-3 sm:h-3" />
                       </div>
                       <span className="text-xs font-semibold">DhunBot</span>
                     </div>
                   )}
-                  <p className="text-sm">{msg.content}</p>
-                  <p className="text-[10px] opacity-70 text-right mt-1">
+                  <p className="text-xs sm:text-sm">{msg.content}</p>
+                  <p className="text-[9px] sm:text-[10px] opacity-70 text-right mt-1">
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -313,11 +307,11 @@ const ChatRoom: React.FC = () => {
           })}
           {isTyping && messagesToDisplay.length > 0 && messagesToDisplay[messagesToDisplay.length - 1]?.senderId !== currentMatch.id && (
             <div className="flex justify-start">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 max-w-[80%] shadow-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 max-w-[80%] shadow-sm">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '200ms' }}></div>
-                  <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '400ms' }}></div>
                 </div>
               </div>
             </div>
@@ -326,23 +320,23 @@ const ChatRoom: React.FC = () => {
         </div>
 
         {/* Input */}
-        <div className="p-3 border-t bg-white dark:bg-gray-800">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={handleAttachFile}>
-              <PaperclipIcon size={18} />
+        <div className="p-2 sm:p-3 border-t bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="icon" onClick={handleAttachFile} className="h-8 w-8 sm:h-10 sm:w-10">
+              <PaperclipIcon size={16} className="sm:w-[18px] sm:h-[18px]" />
             </Button>
             <Input
               placeholder="Type a message..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyPress}
-              className="flex-1"
+              className="flex-1 text-sm"
             />
-            <Button variant="ghost" size="icon">
-              <Smile size={18} />
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
+              <Smile size={16} className="sm:w-[18px] sm:h-[18px]" />
             </Button>
-            <Button onClick={handleSend} className="bg-dhun-purple hover:bg-dhun-purple/90">
-              <Send size={18} />
+            <Button onClick={handleSend} className="bg-dhun-purple hover:bg-dhun-purple/90 h-8 w-8 sm:h-10 sm:w-10">
+              <Send size={16} className="sm:w-[18px] sm:h-[18px]" />
             </Button>
           </div>
         </div>

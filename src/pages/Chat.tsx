@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { User } from '@/types';
-import { MessageSquare, Search, User as UserIcon, Users, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Search, User as UserIcon, Users, ArrowLeft, Trash2 } from 'lucide-react';
 import Header from '@/components/common/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,6 +11,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import ChatRoom from '@/components/chat/ChatRoom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Chat: React.FC = () => {
   const { 
@@ -30,6 +42,8 @@ const Chat: React.FC = () => {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [matchedUsers, setMatchedUsers] = useState<User[]>([]);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Load matched users when component mounts
   useEffect(() => {
@@ -289,6 +303,63 @@ const Chat: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async (user: User) => {
+    if (!currentUser) return;
+    
+    try {
+      // Delete the match between current user and selected user
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${user.id}),and(user1_id.eq.${user.id},user2_id.eq.${currentUser.id})`);
+      
+      if (error) {
+        console.error('Error deleting match:', error);
+        toast({
+          title: "Error",
+          description: "Failed to remove user from your matches.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Remove user from local state
+      setMatchedUsers(prev => prev.filter(u => u.id !== user.id));
+      
+      // Close chat if it's open with this user
+      if (currentMatch && currentMatch.id === user.id) {
+        setChatOpen(false);
+        setCurrentChat(null);
+      }
+      
+      toast({
+        title: "User Removed",
+        description: `${user.name} has been removed from your matches.`,
+      });
+      
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove user from your matches.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openDeleteDialog = (user: User) => {
+    setUserToDelete(user);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    if (userToDelete) {
+      handleDeleteUser(userToDelete);
+    }
+    setShowDeleteDialog(false);
+    setUserToDelete(null);
+  };
+
   // Show chat room overlay if chat is open
   if (chatOpen && currentChat) {
     return (
@@ -303,23 +374,27 @@ const Chat: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-dhun-dark">
       <Header />
       
-      <div className="container py-8">
+      <div className="container py-4 sm:py-8 px-4">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">Your Messages</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold">Your Messages</h1>
             <div className="flex gap-2">
-              <Button onClick={handleTestMatch} className="bg-dhun-orange hover:bg-dhun-orange/90">
+              <Button 
+                onClick={handleTestMatch} 
+                className="bg-dhun-orange hover:bg-dhun-orange/90 text-sm sm:text-base px-3 sm:px-4"
+                size="sm"
+              >
                 Test Match
               </Button>
             </div>
           </div>
           
           {/* Search */}
-          <div className="relative mb-6">
+          <div className="relative mb-4 sm:mb-6">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
             <Input
               placeholder="Search matched users..."
-              className="pl-10"
+              className="pl-10 text-sm sm:text-base"
               value={searchQuery}
               onChange={handleSearch}
             />
@@ -328,40 +403,55 @@ const Chat: React.FC = () => {
           {/* Loading state */}
           {loadingMatches && (
             <div className="text-center py-8">
-              <p>Loading your matches...</p>
+              <p className="text-sm sm:text-base">Loading your matches...</p>
             </div>
           )}
 
           {/* Matched Users */}
           {!loadingMatches && filteredUsers.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-lg font-medium mb-3 flex items-center">
-                <Users className="w-5 h-5 mr-2" />
+              <h2 className="text-base sm:text-lg font-medium mb-3 flex items-center">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Matched Users ({filteredUsers.length})
               </h2>
               <div className="space-y-3">
                 {filteredUsers.map(user => (
                   <div 
                     key={user.id} 
-                    className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                    onClick={() => handleUserClick(user)}
+                    className="flex items-center p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
-                    <Avatar className="h-12 w-12 mr-3">
-                      <AvatarImage src={user.avatar} />
-                      <AvatarFallback className="bg-dhun-orange text-white">
-                        {user.name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate text-lg">{user.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                        Matched via music • Click to chat
-                      </p>
+                    <div 
+                      className="flex items-center flex-1 cursor-pointer"
+                      onClick={() => handleUserClick(user)}
+                    >
+                      <Avatar className="h-10 w-10 sm:h-12 sm:w-12 mr-3">
+                        <AvatarImage src={user.avatar} />
+                        <AvatarFallback className="bg-dhun-orange text-white">
+                          {user.name[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-sm sm:text-lg">{user.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+                          Matched via music • Click to chat
+                        </p>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-xs text-green-500 font-medium mr-2 hidden sm:block">Connected</span>
+                        <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-dhun-purple" />
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <span className="text-xs text-green-500 font-medium mr-2">Connected</span>
-                      <MessageSquare className="w-5 h-5 text-dhun-purple" />
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteDialog(user);
+                      }}
+                      className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 sm:p-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -370,36 +460,44 @@ const Chat: React.FC = () => {
           
           {/* Debug info - only show in development */}
           {process.env.NODE_ENV === 'development' && (
-            <div className="mb-4 p-4 bg-yellow-100 rounded-lg">
-              <p className="text-sm">Debug - Total matched users: {matchedUsers.length}</p>
-              <p className="text-sm">Debug - Filtered users: {filteredUsers.length}</p>
-              <p className="text-sm">Debug - Current user: {currentUser?.name}</p>
-              <p className="text-sm">Debug - Search query: "{searchQuery}"</p>
-              <p className="text-sm">Debug - Loading matches: {loadingMatches}</p>
-              <p className="text-sm">Debug - Chat open: {chatOpen}</p>
-              <p className="text-sm">Debug - Current chat: {currentChat ? 'Yes' : 'No'}</p>
+            <div className="mb-4 p-3 sm:p-4 bg-yellow-100 rounded-lg">
+              <p className="text-xs sm:text-sm">Debug - Total matched users: {matchedUsers.length}</p>
+              <p className="text-xs sm:text-sm">Debug - Filtered users: {filteredUsers.length}</p>
+              <p className="text-xs sm:text-sm">Debug - Current user: {currentUser?.name}</p>
+              <p className="text-xs sm:text-sm">Debug - Search query: "{searchQuery}"</p>
+              <p className="text-xs sm:text-sm">Debug - Loading matches: {loadingMatches}</p>
+              <p className="text-xs sm:text-sm">Debug - Chat open: {chatOpen}</p>
+              <p className="text-xs sm:text-sm">Debug - Current chat: {currentChat ? 'Yes' : 'No'}</p>
             </div>
           )}
           
           {/* No matches state */}
           {!loadingMatches && filteredUsers.length === 0 && (
             <Card className="text-center">
-              <CardContent className="py-8">
-                <UserIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                <h3 className="text-lg font-medium mb-2">
+              <CardContent className="py-6 sm:py-8 px-4">
+                <UserIcon className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-3" />
+                <h3 className="text-base sm:text-lg font-medium mb-2">
                   {searchQuery ? 'No users found' : 'No matches yet'}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4">
                   {searchQuery 
                     ? `No matched users match "${searchQuery}". Try a different search term.`
                     : 'Start listening to music and connect with others who share your taste! When someone listens to the same song, you\'ll be matched automatically.'
                   }
                 </p>
                 <div className="space-y-3">
-                  <Button onClick={handlePlaySong} className="w-full bg-dhun-blue hover:bg-dhun-blue/90">
+                  <Button 
+                    onClick={handlePlaySong} 
+                    className="w-full bg-dhun-blue hover:bg-dhun-blue/90 text-sm sm:text-base"
+                    size="sm"
+                  >
                     Listen to a Random Song
                   </Button>
-                  <Button onClick={handleTestMatch} className="w-full bg-dhun-orange hover:bg-dhun-orange/90">
+                  <Button 
+                    onClick={handleTestMatch} 
+                    className="w-full bg-dhun-orange hover:bg-dhun-orange/90 text-sm sm:text-base"
+                    size="sm"
+                  >
                     Test Matchmaking
                   </Button>
                 </div>
@@ -408,6 +506,27 @@ const Chat: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="mx-4 sm:mx-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base sm:text-lg">Remove User</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm sm:text-base">
+              Are you sure you want to remove {userToDelete?.name} from your matches? This will delete all chat messages and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="text-sm sm:text-base">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-sm sm:text-base"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
