@@ -33,18 +33,49 @@ const Index: React.FC = () => {
     playRecommendedSong
   } = useMusic();
   const [trendingSongs, setTrendingSongs] = useState<string[]>([]);
+  const [featuredSongs, setFeaturedSongs] = useState<string[]>([]);
   const [currentMood, setCurrentMood] = useState<string | null>(null);
   const [moodSongs, setMoodSongs] = useState<string[]>([]);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   
-  // Get random trending songs
+  // Get random songs with user-specific seeding for consistent but different order per user
   useEffect(() => {
     if (songs.length > 0) {
-      // Shuffle and get first 10 songs for "trending"
-      const shuffled = [...songs].sort(() => 0.5 - Math.random());
-      setTrendingSongs(shuffled.slice(0, 8).map(song => song.id));
+      // Create a user-specific seed for consistent randomization
+      const userSeed = currentUser?.id ? 
+        parseInt(currentUser.id.slice(-8), 16) : 
+        Date.now();
+      
+      // Seeded shuffle function
+      const seededShuffle = (array: Song[], seed: number) => {
+        const shuffled = [...array];
+        let m = shuffled.length;
+        let t, i;
+        
+        // Use a simple LCG for seeded randomness
+        let random = seed;
+        const next = () => {
+          random = (random * 1664525 + 1013904223) % Math.pow(2, 32);
+          return random / Math.pow(2, 32);
+        };
+        
+        while (m) {
+          i = Math.floor(next() * m--);
+          t = shuffled[m];
+          shuffled[m] = shuffled[i];
+          shuffled[i] = t;
+        }
+        return shuffled;
+      };
+      
+      // Get different shuffled arrays for trending and featured
+      const trendingShuffled = seededShuffle(songs, userSeed);
+      const featuredShuffled = seededShuffle(songs, userSeed + 12345);
+      
+      setTrendingSongs(trendingShuffled.slice(0, 8).map(song => song.id));
+      setFeaturedSongs(featuredShuffled.slice(0, 5).map(song => song.id));
     }
-  }, [songs]);
+  }, [songs, currentUser?.id]);
 
   // Handle mood selection - fetch from database mood column
   const handleMoodSelect = async (mood: string) => {
@@ -174,8 +205,8 @@ const Index: React.FC = () => {
           </div>
         )}
         
-        {/* All Songs Section - Featured Songs */}
-        {!loadingSongs && songs.length > 0 && (
+        {/* Featured Songs Section - Now randomized per user */}
+        {!loadingSongs && featuredSongs.length > 0 && (
           <section className="mb-6 sm:mb-10">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <h2 className="text-lg sm:text-xl md:text-2xl font-semibold">Featured Songs</h2>
@@ -193,12 +224,12 @@ const Index: React.FC = () => {
             </div>
             
             <div className="bg-white dark:bg-dhun-dark rounded-lg p-3 sm:p-4 shadow-sm mb-4 sm:mb-6">
-              <SongList songs={songs.slice(0, 5).map(song => song.id)} />
+              <SongList songs={featuredSongs} />
             </div>
           </section>
         )}
         
-        {/* Trending Section */}
+        {/* Trending Section - Now randomized per user */}
         {!loadingSongs && trendingSongs.length > 0 && (
           <section className="mb-8 sm:mb-12">
             <div className="flex items-center justify-between mb-3 sm:mb-4">

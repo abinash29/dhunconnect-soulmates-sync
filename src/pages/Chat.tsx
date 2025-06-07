@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,7 +34,8 @@ const Chat: React.FC = () => {
     currentChat,
     setCurrentChat,
     setChatOpen,
-    currentMatch
+    currentMatch,
+    fetchMatchUserDetails
   } = useMusic();
   const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -279,25 +279,10 @@ const Chat: React.FC = () => {
       
       console.log('Found match:', match);
       
-      // Create a chat session for this user using the actual match ID
-      const newChat = {
-        id: match.id,
-        matchId: match.id,
-        users: [currentUser.id, user.id],
-        messages: [],
-        createdAt: new Date(),
-      };
+      // Use the fetchMatchUserDetails function to properly set up the chat
+      await fetchMatchUserDetails(user.id, match.id, match.song_id);
       
-      console.log('Setting current chat and opening chatbox:', newChat);
-      
-      // Set the current chat
-      setCurrentChat(newChat);
-      
-      // Force open the chat
-      console.log('Force opening chat...');
-      setChatOpen(true);
-      
-      console.log('Chat should now be open. ChatOpen should be true');
+      console.log('Chat should now be open via fetchMatchUserDetails');
     } catch (error) {
       console.error('Error opening chat:', error);
     }
@@ -307,11 +292,11 @@ const Chat: React.FC = () => {
     if (!currentUser) return;
     
     try {
-      // Delete the match between current user and selected user
-      const { error } = await supabase
-        .from('matches')
-        .delete()
-        .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${user.id}),and(user1_id.eq.${user.id},user2_id.eq.${currentUser.id})`);
+      // Use the database function to delete the match and associated messages
+      const { error } = await supabase.rpc('delete_user_match', {
+        current_user_id: currentUser.id,
+        other_user_id: user.id
+      });
       
       if (error) {
         console.error('Error deleting match:', error);
@@ -330,6 +315,8 @@ const Chat: React.FC = () => {
       if (currentMatch && currentMatch.id === user.id) {
         setChatOpen(false);
         setCurrentChat(null);
+        // Clear saved chat state
+        sessionStorage.removeItem('dhun_chat_state');
       }
       
       toast({

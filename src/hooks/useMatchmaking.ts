@@ -41,22 +41,45 @@ export const useMatchmaking = () => {
     currentUser,
     setCurrentMatch,
     setCurrentChat,
-    setChatOpen: (isOpen: boolean) => setChatOpen(isOpen)
+    setChatOpen: (isOpen: boolean) => {
+      console.log('Setting chat open from match logic:', isOpen);
+      setChatOpen(isOpen);
+      
+      // Notify both users when a match occurs
+      if (isOpen && currentMatch) {
+        console.log('Match found! Notifying users...');
+        // This will handle the notification for both the first and second user
+      }
+    }
   });
   
   // Set up real-time subscriptions with all required props
   const { updateActiveListenersCount } = useRealtimeSubscriptions({
     currentUser,
     setActiveListeners,
-    checkForRealTimeMatch,
-    fetchMatchUserDetails,
+    checkForRealTimeMatch: (song: Song) => {
+      console.log('Real-time match check triggered for:', song.title);
+      return checkForRealTimeMatch(song);
+    },
+    fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => {
+      console.log('Fetching match details for users:', { userId, matchId, songId });
+      return fetchMatchUserDetails(userId, matchId, songId);
+    },
     registerConnectedUser: (user: User) => registerConnectedUser(user, currentUser?.id)
   });
   
   // Set up Supabase realtime for enhanced chat functionality
   const supabaseRealtime = useSupabaseRealtime({
-    setChatOpen: () => setChatOpen(true),
-    fetchMatchUserDetails,
+    setChatOpen: (shouldOpen: boolean = true) => {
+      console.log('Supabase realtime setting chat open:', shouldOpen);
+      if (shouldOpen) {
+        setChatOpen(true);
+      }
+    },
+    fetchMatchUserDetails: (userId: string, matchId: string, songId: string) => {
+      console.log('Supabase realtime fetching match details:', { userId, matchId, songId });
+      return fetchMatchUserDetails(userId, matchId, songId);
+    },
     registerConnectedUser: (user: User) => registerConnectedUser(user, currentUser?.id)
   });
   

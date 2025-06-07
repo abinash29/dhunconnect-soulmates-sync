@@ -208,6 +208,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_user_match: {
+        Args: { current_user_id: string; other_user_id: string }
+        Returns: undefined
+      }
       get_most_listened_genre: {
         Args: { user_uuid: string }
         Returns: string

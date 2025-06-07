@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useMusic } from '@/contexts/MusicContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +27,36 @@ const ChatRoom: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
+
+  // Persist chat state in sessionStorage to survive page refreshes
+  useEffect(() => {
+    const savedChatState = sessionStorage.getItem('dhun_chat_state');
+    if (savedChatState && !currentChat) {
+      try {
+        const { chat, match } = JSON.parse(savedChatState);
+        if (chat && match) {
+          setCurrentChat(chat);
+          // Note: We can't directly set currentMatch here as it's managed by the music context
+          // But the chat will still work with the saved chat data
+          setChatOpen(true);
+        }
+      } catch (error) {
+        console.error('Error parsing saved chat state:', error);
+        sessionStorage.removeItem('dhun_chat_state');
+      }
+    }
+  }, [currentChat, setCurrentChat, setChatOpen]);
+
+  // Save chat state when it changes
+  useEffect(() => {
+    if (currentChat && currentMatch) {
+      const chatState = {
+        chat: currentChat,
+        match: currentMatch
+      };
+      sessionStorage.setItem('dhun_chat_state', JSON.stringify(chatState));
+    }
+  }, [currentChat, currentMatch]);
 
   // Force chat to open if we have a match and current chat
   useEffect(() => {
@@ -216,8 +245,10 @@ const ChatRoom: React.FC = () => {
     setChatOpen(false);
     setCurrentChat(null);
     
+    // Clear saved chat state
+    sessionStorage.removeItem('dhun_chat_state');
+    
     // Always stay on the same page when closing chat
-    // Don't navigate anywhere, just close the overlay
     console.log('Closing chat overlay, staying on current page');
   };
 
